@@ -1,0 +1,19 @@
+{
+  "name": "finalproj",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "dev": "lite-server"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@truffle/contract": "^4.3.17",
+    "lite-server": "^2.6.1",
+    "web3": "^1.3.6"
+  }
+}
