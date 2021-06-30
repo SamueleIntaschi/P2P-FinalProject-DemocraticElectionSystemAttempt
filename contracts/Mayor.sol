@@ -3,6 +3,8 @@
 pragma solidity >=0.6.22 <0.9.0;
 
 //TODO: coalizioni, trattate come candidati
+//TODO: funzione per aggiungere candidati o coalizioni
+//TODO: funzione per vedere quali sono i candidati o il quorum
 
 contract Mayor {
     

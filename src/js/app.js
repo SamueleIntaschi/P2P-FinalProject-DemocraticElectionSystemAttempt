@@ -7,7 +7,6 @@
     - npm run dev
 */
 
-
 App = {
     contracts: {}, // Store contract abstractions
     web3Provider: null, // Web3 provider
@@ -76,10 +75,35 @@ App = {
     render: function() { /* Render page */
         // Retrieve contract instance
         App.contracts["Mayor"].deployed().then(async(instance) =>{
-            // Call the value function (value is a public attribute)
-            const v = await instance.total_souls();
-            console.log(v);
-            $("#valueId").html("" + v);
+            //Get the candidates for mayor
+            var i = 0;
+            var err = false;
+            var candidates = [];
+            var options = [];
+            while (!err) {
+                try {
+                    let candidate = await instance.candidates(i);
+                    console.log(candidate);
+                    candidates.push(candidate);
+                    options.push({
+                        text: 'Candidate ' + i,
+                        value: candidate
+                    });
+                }
+                catch (e) {
+                    console.log(e);
+                    err = true;
+                }
+                i++;
+            }
+            console.log(candidates);
+            let optionList = document.getElementById('vote').options;
+            //Add an option for every candidate
+            options.forEach(option =>
+                optionList.add(
+                    new Option(option.text, option.value, option.selected)
+                )
+            );
         });
     },
 
@@ -106,6 +130,7 @@ App = {
     } 
 }
 
+/*
 function selection(s) {
     if (s == 0) {
         var el = document.getElementById("candidate-button");
@@ -134,15 +159,16 @@ function candidate_handler() {
     var fname = document.getElementById("candidate-fname").value;
     var lname = document.getElementById("candidate-lname").value;
     var name = fname + " " + lname;
-    //TODO: generate a random address
-    var address = "0xaF8a020BA9979a18eC50A9Ca5c55c0851aC9F455";
+    var account = web3.eth.accounts.create();
+    var address = account.address;
     App.candidates[name] = address;
-    console.log("candidate added");
+    console.log("candidate added: " + name);
     //TODO: go to a page that shows the result of the operation or return to homepage
 }
+*/
 
 function vote_handler() {
-    //TODO: nel form vanno inseriti il nome del votante e un menù di selezione per i candidati poi va gestito da qui
+    //TODO: calcolare busta e inviare
 }
 
 // Call init whenever the window loads

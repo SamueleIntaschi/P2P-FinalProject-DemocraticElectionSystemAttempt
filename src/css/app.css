@@ -29,11 +29,3 @@ input[type=submit]:hover {
     background-color: #45a049;
 }
 
-#candidate-form {
-    display: none;
-}
-
-#vote-form {
-    display: none;
-}
-

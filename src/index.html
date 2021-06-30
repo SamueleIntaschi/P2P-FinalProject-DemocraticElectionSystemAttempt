@@ -14,12 +14,12 @@
     <body>
         <h1>Valadilene Voting System</h1>
 
-        <div id="selection">
+        <!--div id="selection">
           <input id="candidate-button" type="button" onClick="selection(0)" value="Candidate">
           <input id="vote-button" type="button" onClick="selection(1)" value="Vote">
-        </div>
+        </div-->
 
-        <div id="candidate-form">
+        <!--div id="candidate-form">
           <form>
             <label for="candidate-fname">First Name</label>
             <input type="text" id="candidate-fname" name="firstname" placeholder="Your name..">
@@ -29,22 +29,18 @@
           
             <input type="button" onClick="candidate_handler()" value="Submit">
           </form>
-        </div>
+        </div-->
 
         <div id="vote-form">
             <form>
-              <label for="fname">First Name</label>
-              <input type="text" id="fname" name="firstname" placeholder="Your name..">
+              <label for="voter-fname">First Name</label>
+              <input type="text" id="voter-fname" name="firstname" placeholder="Your name..">
           
-              <label for="lname">Last Name</label>
-              <input type="text" id="lname" name="lastname" placeholder="Your last name..">
+              <label for="voter-lname">Last Name</label>
+              <input type="text" id="voter-lname" name="lastname" placeholder="Your last name..">
           
-              <label for="country">Country</label>
-              <select id="country" name="country">
-                <option value="australia">Australia</option>
-                <option value="canada">Canada</option>
-                <option value="usa">USA</option>
-              </select>
+              <label for="vote">Voting preference</label>
+              <select id="vote" name="country"\>
             
               <input type="button" onClick="vote_handler()" value="Submit">
             </form>
