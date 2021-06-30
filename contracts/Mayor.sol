@@ -2,6 +2,8 @@
 //pragma solidity 0.8.1;
 pragma solidity >=0.6.22 <0.9.0;
 
+//TODO: coalizioni, trattate come candidati
+
 contract Mayor {
     
     // Structs, events, and modifiers
@@ -136,14 +138,6 @@ contract Mayor {
                     candidate_souls[candidates[i]] = 0;
                     winner = candidates[i];
                 }
-                /*
-                else if (candidate_souls[candidates[i]] == candidate_souls[winner] && 
-                  candidate_votes[candidates[i]] > candidate_votes[winner]) {
-                    fund = candidate_souls[candidates[i]];
-                    candidate_souls[candidates[i]] = 0;
-                    winner = candidates[i];
-                }
-                */
             }
         }
         
