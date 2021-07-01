@@ -7,10 +7,13 @@
     - npm run dev
 */
 
+account_number = 0;
+
 App = {
     contracts: {}, // Store contract abstractions
     web3Provider: null, // Web3 provider
     url: 'http://127.0.0.1:7545', // Url for web3
+    account: "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
     accounts: [
         "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
         "0xF076E015a43B8d4510b64CD7302B7a7d127874Fd",
@@ -24,6 +27,7 @@ App = {
         "0xE96AB844BAC663e1924Df3ae2249F03F8d01d975"
     ],
     candidates: new Map(),
+    voters: window.localStorage,
 
     init: function() { return App.initWeb3(); },
 
@@ -61,11 +65,13 @@ App = {
     listenForEvents: function() { /* Activate event listeners */
         web3.eth.getBlockNumber(function (error, block) {
             App.contracts["Mayor"].deployed().then(async (instance) => {
-                // click is the Solidity event
-                instance.EnvelopeOpen().on('data', function (event) {
-                    $("#eventId").html("Event catched!");
-                    console.log("Event catched");
-                    console.log(event);
+                instance.NewMayor().on('data', function (event) {
+                    console.log("New Mayor!!!");
+                    document.getElementById("vote-form").display = "none";
+                    document.getElementById("results").display = "inline";
+                    var elem = document.getElementById("winner-announce");
+                    elem.innerHTML = event.returnValues._candidate;
+                    App.voters.clear();
                     // If event has parameters: event.returnValues.*paramName*
                 });
             });
@@ -75,6 +81,14 @@ App = {
     render: function() { /* Render page */
         // Retrieve contract instance
         App.contracts["Mayor"].deployed().then(async(instance) =>{
+
+            //Retrieve account number
+            account_number = localStorage["number"];
+            if (Number.isNaN(parseFloat(account_number))) {
+                account_number = 0;
+                localStorage['number'] = 0;
+            }
+
             //Get the candidates for mayor
             var i = 0;
             var err = false;
@@ -108,67 +122,98 @@ App = {
     },
 
     // Call a function of a smart contract
-    // The function send an event that triggers a transaction:: Metamask pops up and ask the user to confirm the transaction
-    pressClick: function() {
-        App.contracts["Contract"].deployed().then(async(instance) =>{
-            await instance.pressClick({from: App.account});
+
+    vote: function(name, sigil, symbol, soul) {
+        App.contracts["Mayor"].deployed().then(async(instance) => {
+            
+            const accounts = await web3.eth.getAccounts();
+            var account = accounts[account_number];
+            account_number++;
+            App.voters[name] = account;
+            App.voters["number"] = account_number;
+            var elem = document.getElementById("notification");
+            console.log(name,sigil,symbol,soul);
+            try {
+                var result = await instance.compute_envelope(sigil, symbol, soul, {from: account});
+                console.log(result);
+                result = await instance.cast_envelope(result, {from: account});
+                console.log(result);
+                if (result.logs[0].event == "EnvelopeCast") {
+                    elem.innerHTML = "Vote correctly inserted";
+                }
+                else {
+                    elem.innerHTML = "Vote not inserted";
+                }
+            }
+            catch (error) {
+                console.log(error);
+                elem.innerHTML = "Vote not inserted";
+            }
+
         });
     },
 
-    
-    computeEnvelope: function() {
-        console.log("Called!")
+    openEnvelope: function(name, sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
-            await instance.compute_envelope("0x0", {from: App.accounts[2]});
-        });
-    },
 
-    castEnvelope: function(account) {
-        App.contracts["Mayor"].deployed().then(async(instance) => {
-            await instance.cast_envelope(result, {from: account});
+            var account = App.voters[name];
+            var elem = document.getElementById("notification");
+            try {
+                var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: account});
+                console.log(result);
+                if (result.logs[0].event == "EnvelopeOpen") {
+                    elem.innerHTML = "EnvelopeOpened"
+                }
+                else {
+                    elem.innerHTML = "The quorum is not reached yet";
+                }
+            }
+            catch (error) {
+                elem.innerHTML = "The quorum is not reached yet";
+                console.log(error);
+            }
+            
+            try {
+                var result = await instance.mayor_or_sayonara({from: account});
+            }
+            catch (error) {
+                console.log(error);
+            }
+
         });
-    } 
+    }
+
 }
 
-/*
-function selection(s) {
-    if (s == 0) {
-        var el = document.getElementById("candidate-button");
-        el.style.display = "none";
-        el = document.getElementById("vote-button");
-        el.style.display = "none";
-        el = document.getElementById("vote-form");
-        el.style.display = "none";
-        el = document.getElementById("candidate-form");
-        el.style.display = "inline";
-    }
-    else if (s == 1) {
-        var el = document.getElementById("candidate-button");
-        el.style.display = "none";
-        el = document.getElementById("candidate-form");
-        el.style.display = "none";
-        el = document.getElementById("vote-button");
-        el.style.display = "none";
-        el = document.getElementById("vote-form");
-        el.style.display = "inline";
-    }
-}
-
-function candidate_handler() {
-    //Generate a random address and associate it to the candidate's name
-    var fname = document.getElementById("candidate-fname").value;
-    var lname = document.getElementById("candidate-lname").value;
+function open_handler() {
+    cleanNotification();
+    var fname = document.getElementById("voter-fname").value;
+    var lname = document.getElementById("voter-lname").value;
     var name = fname + " " + lname;
-    var account = web3.eth.accounts.create();
-    var address = account.address;
-    App.candidates[name] = address;
-    console.log("candidate added: " + name);
-    //TODO: go to a page that shows the result of the operation or return to homepage
+    var soul = document.getElementById("soul").value;
+    var symbol = document.getElementById("vote").value;
+    var sigil = document.getElementById("sigil").value;
+
+    App.openEnvelope(name, sigil, symbol, soul);
+
 }
-*/
 
 function vote_handler() {
-    //TODO: calcolare busta e inviare
+    cleanNotification();
+    var fname = document.getElementById("voter-fname").value;
+    var lname = document.getElementById("voter-lname").value;
+    var name = fname + " " + lname;
+    var soul = document.getElementById("soul").value;
+    var symbol = document.getElementById("vote").value;
+    var sigil = document.getElementById("sigil").value;
+
+    App.vote(name, sigil, symbol, soul);
+
+}
+
+function cleanNotification() {
+    var elem = document.getElementById("notification");
+    elem.innerHTML = "";
 }
 
 // Call init whenever the window loads
