@@ -22,11 +22,17 @@ contract Mayor {
         uint32 envelopes_casted;
         uint32 envelopes_opened;
     }
+
+    struct Coalition {
+        address payable[] components;
+        address payable coalition_address;
+    }
     
     event NewMayor(address _candidate);
     event Sayonara(address _escrow);
     event EnvelopeCast(address _voter);
     event EnvelopeOpen(address _voter, uint _soul, address _symbol);
+    event CoalitionCreate(address _coalition_address, address payable[] candidates);
     
     // Someone can vote as long as the quorum is not reached
     modifier canVote() {
@@ -50,6 +56,7 @@ contract Mayor {
     
     // Initialization variables
     address payable[] public candidates;
+    Coalition[] public coalitions;
     address payable public escrow;
     
     // Voting phase variables
@@ -118,6 +125,27 @@ contract Mayor {
         //if (voting_condition.envelopes_opened == voting_condition.envelopes_casted) mayor_or_sayonara();
 
     }
+
+    /// @notice Create a coalition taking a list of candidates
+    /// @param _candidates the candidates who will form a coalition
+    function create_coalition(address payable[] memory _candidates) canVote public {
+        require(_candidates.length > 1, "The number of candidates is too small");
+        //Check if all the components are candidates
+        for (uint i=0; i<_candidates.length; i++) {
+            address payable candidate = _candidates[i];
+            bool found = false;
+            uint j = 0;
+            while (j<_candidates.length && !found) {
+                if (candidates[j] == _candidates[i]) {
+                    found = true;
+                }
+            }
+            require(found, "An address is not a candidate");
+        }
+        address payable c_address = payable(msg.sender);
+        Coalition memory coalition = Coalition({components: _candidates, coalition_address: c_address});
+        coalitions.push(coalition);
+    }
     
     
     /// @notice Either confirm or kick out the candidate. Refund the electors who voted for the losing outcome
@@ -127,18 +155,35 @@ contract Mayor {
         bool success = false;
 
         address payable winner = payable(address(0));
-        for (uint i=0; i<candidates.length; i++) {
-            if (winner == payable(address(0)) && candidate_souls[candidates[i]] > 0) {
-                fund = candidate_souls[candidates[i]];
-                candidate_souls[candidates[i]] = 0;
-                winner = candidates[i];
+        uint maximum = 0;
+
+        for (uint i=0; i<coalitions.length; i++) {
+            if (candidate_souls[coalitions[i].coalition_address] >= total_souls / 3) {
+                if (winner == payable(address(0))) {
+                    maximum = candidate_souls[coalitions[i].coalition_address];
+                    winner = coalitions[i].coalition_address;
+                }
+                else if (candidate_souls[coalitions[i].coalition_address] > maximum)  {
+                    maximum = candidate_souls[coalitions[i].coalition_address];
+                    winner = coalitions[i].coalition_address;
+                }
             }
-            else {
-                if ((candidate_souls[candidates[i]] > fund) || 
-                  (candidate_souls[candidates[i]] == fund && candidate_votes[candidates[i]] > candidate_votes[winner])) {
+        }
+
+        if (winner == payable(address(0))) {
+            for (uint i=0; i<candidates.length; i++) {
+                if (winner == payable(address(0)) && candidate_souls[candidates[i]] > 0) {
                     fund = candidate_souls[candidates[i]];
                     candidate_souls[candidates[i]] = 0;
                     winner = candidates[i];
+                }
+                else {
+                    if ((candidate_souls[candidates[i]] > fund) || 
+                    (candidate_souls[candidates[i]] == fund && candidate_votes[candidates[i]] > candidate_votes[winner])) {
+                        fund = candidate_souls[candidates[i]];
+                        candidate_souls[candidates[i]] = 0;
+                        winner = candidates[i];
+                    }
                 }
             }
         }

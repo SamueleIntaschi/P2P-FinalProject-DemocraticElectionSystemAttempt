@@ -27,7 +27,8 @@ App = {
         "0xE96AB844BAC663e1924Df3ae2249F03F8d01d975"
     ],
     candidates: new Map(),
-    voters: window.localStorage,
+    //voters: window.localStorage,
+    voters: new Map(),
 
     init: function() { return App.initWeb3(); },
 
@@ -71,7 +72,7 @@ App = {
                     document.getElementById("results").display = "inline";
                     var elem = document.getElementById("winner-announce");
                     elem.innerHTML = event.returnValues._candidate;
-                    App.voters.clear();
+                    //App.voters.clear();
                     // If event has parameters: event.returnValues.*paramName*
                 });
             });
@@ -82,12 +83,13 @@ App = {
         // Retrieve contract instance
         App.contracts["Mayor"].deployed().then(async(instance) =>{
 
-            //Retrieve account number
+            /*Retrieve account number
             account_number = localStorage["number"];
             if (Number.isNaN(parseFloat(account_number))) {
                 account_number = 0;
                 localStorage['number'] = 0;
             }
+            */
 
             //Get the candidates for mayor
             var i = 0;
@@ -101,7 +103,8 @@ App = {
                     candidates.push(candidate);
                     options.push({
                         text: 'Candidate ' + i,
-                        value: candidate
+                        value: candidate,
+                        id: "checkbox-candidate-" + i
                     });
                 }
                 catch (e) {
@@ -110,33 +113,53 @@ App = {
                 }
                 i++;
             }
-            console.log(candidates);
+            //console.log(candidates);
             let optionList = document.getElementById('vote').options;
+            let checkboxes = document.getElementById('candidates-list');
             //Add an option for every candidate
-            options.forEach(option =>
+            options.forEach(option => {
+                //Add candidates to the selection component
                 optionList.add(
                     new Option(option.text, option.value, option.selected)
-                )
-            );
+                );
+                //Add candidates to the coalition checkbox
+                var input = document.createElement("input");
+                var label = document.createElement("label");
+                input.type = "checkbox";
+                input.name = option.text;
+                label.innerHTML = option.text;
+                input.id = option.id;
+                label.htmlFor = option.id;
+                input.value = option.value;
+                input.innerHTML = option.text;
+                label.className = "checkbox-label";
+                input.className = "checkbox-input";
+                n = document.createElement("br");
+                checkboxes.appendChild(input);
+                checkboxes.appendChild(label);
+                checkboxes.appendChild(n);
+            });
         });
     },
 
     // Call a function of a smart contract
 
-    vote: function(name, sigil, symbol, soul) {
+    vote: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
             
-            const accounts = await web3.eth.getAccounts();
-            var account = accounts[account_number];
-            account_number++;
-            App.voters[name] = account;
-            App.voters["number"] = account_number;
+            //The addres must be one in the network
+            const address = document.getElementById("voter-address").value;
+            //const accounts = await web3.eth.getAccounts();
+            //var account = accounts[account_number];
+            //account_number++;
+            //App.voters[name] = address;
+            //App.voters["number"] = account_number;
             var elem = document.getElementById("notification");
-            console.log(name,sigil,symbol,soul);
+            console.log(sigil,symbol,soul);
             try {
-                var result = await instance.compute_envelope(sigil, symbol, soul, {from: account});
+                var result = await instance.compute_envelope(sigil, symbol, soul, {from: address});
                 console.log(result);
-                result = await instance.cast_envelope(result, {from: account});
+                result = await instance.cast_envelope(result, {from: address});
                 console.log(result);
                 if (result.logs[0].event == "EnvelopeCast") {
                     elem.innerHTML = "Vote correctly inserted";
@@ -153,13 +176,14 @@ App = {
         });
     },
 
-    openEnvelope: function(name, sigil, symbol, soul) {
+    openEnvelope: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
-            var account = App.voters[name];
+            //var account = App.voters[name];
+            const address = document.getElementById("voter-address");
             var elem = document.getElementById("notification");
             try {
-                var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: account});
+                var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: address});
                 console.log(result);
                 if (result.logs[0].event == "EnvelopeOpen") {
                     elem.innerHTML = "EnvelopeOpened"
@@ -174,15 +198,68 @@ App = {
             }
             
             try {
-                var result = await instance.mayor_or_sayonara({from: account});
+                var result = await instance.mayor_or_sayonara({from: address});
+                if (result.log[0].event == "NewMayor") {
+                    document.getElementById("vote-form").display = "none";
+                    document.getElementById("results").display = "inline";
+                    var elem = document.getElementById("winner-announce");
+                    elem.innerHTML = "New Mayor elected";
+                    //App.voters.clear();
+                }
+                else if (result.logs[0].event == "Sayonara") {
+
+                }
+                else {
+                    console.log(result);
+                }
             }
             catch (error) {
                 console.log(error);
             }
 
         });
+    },
+
+    createCoalition: function(coalition_address, candidates) {
+        App.contracts["Mayor"].deployed().then(async(instance) => {
+            try {
+                var result = await instance.createCoalition(candidates, {from: coalition_address});
+                console.log(result);
+                if (result.logs[0].event == "CoalitionCreate") {
+                    elem.innerHTML = "Coalition Created"
+                }
+                else {
+                    elem.innerHTML = "Coalition not created";
+                }
+            }
+            catch (e) {
+                console.log(e);
+            }
+        });
     }
 
+}
+
+function selection(s) {
+    if (s == 0) {
+        //case coalition
+    }
+    else if (s == 1) {
+        //case vote
+    }
+}
+
+function coalition_handler() {
+    var candidates = [];
+    var address = document.getElementById("coalition-address").value;
+    var cbxs = document.getElementsByClassName("checkbox-input");
+    for (var i=0; i<cbxs.length; i++) {
+        if (cbxs[i].checked) {
+            candidates.push(cbxs[i].value);
+        }
+    }
+    
+    App.createCoalition(address, candidates);
 }
 
 function open_handler() {
@@ -194,7 +271,7 @@ function open_handler() {
     var symbol = document.getElementById("vote").value;
     var sigil = document.getElementById("sigil").value;
 
-    App.openEnvelope(name, sigil, symbol, soul);
+    App.openEnvelope(sigil, symbol, soul);
 
 }
 
@@ -203,11 +280,14 @@ function vote_handler() {
     var fname = document.getElementById("voter-fname").value;
     var lname = document.getElementById("voter-lname").value;
     var name = fname + " " + lname;
-    var soul = document.getElementById("soul").value;
     var symbol = document.getElementById("vote").value;
+    /*
+    TODO: var soul = prompt("Enter soul to send", "");
+    */
+    var soul = document.getElementById("soul").value;
     var sigil = document.getElementById("sigil").value;
 
-    App.vote(name, sigil, symbol, soul);
+    App.vote(sigil, symbol, soul);
 
 }
 

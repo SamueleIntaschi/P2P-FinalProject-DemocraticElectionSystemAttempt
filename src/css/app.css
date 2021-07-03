@@ -29,6 +29,11 @@ input[type=submit]:hover {
     background-color: #45a049;
 }
 
+.checkbox-label {
+    font-size: medium;
+    font-weight: 100;
+}
+
 #results {
     display: none;
 }

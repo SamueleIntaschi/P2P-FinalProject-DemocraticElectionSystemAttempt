@@ -16,36 +16,49 @@
 
         <h3 id="notification"></h3>
 
+        <!--input type="button" onClick="selection(0)" value="Create a coalition">
+        <input type="button" onClick="selection(1)" value="Vote"-->
+
+        <div id="coalition-form">
+          <form>
+            <label for="coalition-address">Address</label>
+            <input type="text" id="coalition-address" name="address" placeholder="Your Address..">
+            <fieldset id="candidates-list">
+              <legend>Candidates</legend>
+            </fieldset>
+            <input type="button" onClick="coalition_handler()" value="Submit">
+          </form>
+        </div>
+
         <div id="vote-form">
-            <form>
+          <form>
+            <label for="voter-address">Address</label>
+            <input type="text" id="voter-address" name="address" placeholder="Your Address..">
 
-              <!--label for="address">Address</label>
-              <input type="text" id="address" name="address" placeholder="Your Address.."-->
+            <label for="voter-fname">First Name</label>
+            <input type="text" id="voter-fname" name="firstname" placeholder="Your name..">
+        
+            <label for="voter-lname">Last Name</label>
+            <input type="text" id="voter-lname" name="lastname" placeholder="Your last name..">
 
-              <label for="voter-fname">First Name</label>
-              <input type="text" id="voter-fname" name="firstname" placeholder="Your name..">
-          
-              <label for="voter-lname">Last Name</label>
-              <input type="text" id="voter-lname" name="lastname" placeholder="Your last name..">
+            <label for="sigil">Sigil</label>
+            <input type="text" id="sigil" name="sigil" placeholder="Sigil..">
+            
+            <label for="soul">Soul</label>
+            <input type="text" id="soul" name="soul" placeholder="Soul to send..">
+        
+            <label for="vote">Voting preference</label>
+            <select id="vote" name="Candidates"\>
 
-              <label for="sigil">Sigil</label>
-              <input type="text" id="sigil" name="sigil" placeholder="Sigil..">
-              
-              <label for="soul">Soul</label>
-              <input type="text" id="soul" name="soul" placeholder="Soul to send..">
-          
-              <label for="vote">Voting preference</label>
-              <select id="vote" name="Candidates"\>
+            <input type="button" onClick="vote_handler()" value="Submit">
+            <input type="button" onClick="open_handler()" value="Open envelope">
+          </form>
+        </div>
 
-              <input type="button" onClick="vote_handler()" value="Submit">
-              <input type="button" onClick="open_handler()" value="Open envelope">
-            </form>
-          </div>
-
-          <div id="results">
-            <h1>Election results</h1>
-            <h2 id="winner-announce"></h2>
-          </div>
+        <div id="results">
+          <h1>Election results</h1>
+          <h2 id="winner-announce"></h2>
+        </div>
 
     </body>
 </html>
