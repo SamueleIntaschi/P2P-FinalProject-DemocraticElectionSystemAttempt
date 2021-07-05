@@ -32,7 +32,7 @@ contract Mayor {
     event Sayonara(address _escrow);
     event EnvelopeCast(address _voter);
     event EnvelopeOpen(address _voter, uint _soul, address _symbol);
-    event CoalitionCreate(address _coalition_address, address payable[] candidates);
+    event CoalitionCreate(address _coalition_address, address payable[] _candidates);
     
     // Someone can vote as long as the quorum is not reached
     modifier canVote() {
@@ -130,21 +130,34 @@ contract Mayor {
     /// @param _candidates the candidates who will form a coalition
     function create_coalition(address payable[] memory _candidates) canVote public {
         require(_candidates.length > 1, "The number of candidates is too small");
-        //Check if all the components are candidates
+        //Check if there are duplicates
         for (uint i=0; i<_candidates.length; i++) {
-            address payable candidate = _candidates[i];
             bool found = false;
             uint j = 0;
-            while (j<_candidates.length && !found) {
+            while (j < _candidates.length && !found) {
+                if (_candidates[j] == _candidates[i] && i != j) {
+                    found = true;
+                }
+                j++;
+            }
+            require(!found, "An address is a duplicate");
+        }
+        //Check if all the components are candidates
+        for (uint i=0; i<_candidates.length; i++) {
+            bool found = false;
+            uint j = 0;
+            while (j < candidates.length && !found) {
                 if (candidates[j] == _candidates[i]) {
                     found = true;
                 }
+                j++;
             }
             require(found, "An address is not a candidate");
         }
         address payable c_address = payable(msg.sender);
         Coalition memory coalition = Coalition({components: _candidates, coalition_address: c_address});
         coalitions.push(coalition);
+        emit CoalitionCreate(c_address, _candidates);
     }
     
     
@@ -160,10 +173,12 @@ contract Mayor {
         for (uint i=0; i<coalitions.length; i++) {
             if (candidate_souls[coalitions[i].coalition_address] >= total_souls / 3) {
                 if (winner == payable(address(0))) {
+                    fund = candidate_souls[coalitions[i].coalition_address];
                     maximum = candidate_souls[coalitions[i].coalition_address];
                     winner = coalitions[i].coalition_address;
                 }
                 else if (candidate_souls[coalitions[i].coalition_address] > maximum)  {
+                    fund = candidate_souls[coalitions[i].coalition_address];
                     maximum = candidate_souls[coalitions[i].coalition_address];
                     winner = coalitions[i].coalition_address;
                 }
