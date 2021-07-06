@@ -7,10 +7,15 @@
     - npm run dev
 */
 
-account_number = 0;
+/*
+TODO: controllare perché non vengono accettati alcuni indirizzi eth 
+      controllare funzionamento sistema di voti
+      event listeners
+*/
 
 App = {
     contracts: {}, // Store contract abstractions
+    contract_address: "",
     web3Provider: null, // Web3 provider
     url: 'http://127.0.0.1:7545', // Url for web3
     account: "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
@@ -34,8 +39,8 @@ App = {
 
     initWeb3: function() { /* initialize Web3 */
         if(typeof web3 != 'undefined') { // Check whether exists a provider, e.g Metamask
-            //App.web3Provider = window.ethereum; // standard since 2/11/18
-            App.web3Provider = new Web3.providers.HttpProvider(App.url);
+            App.web3Provider = window.ethereum; // standard since 2/11/18
+            //App.web3Provider = new Web3.providers.HttpProvider(App.url);
             web3 = new Web3(App.web3Provider);
             try { // Permission popup
                 ethereum.enable().then(async() => { console.log("DApp connected"); });
@@ -47,22 +52,26 @@ App = {
         }
         return App.initContract();
     },
-    initContract: function() { /* Upload the contract's */ 
+
+    initContract: async function() { /* Upload the contract's */ 
+        let networkId = await web3.eth.net.getId();
+        console.log('networkId', networkId);
+
         // Store ETH current account
         web3.eth.getCoinbase(function(err, account) {
             if(err == null) {
                 App.account = account;
                 console.log(account);
-                $("#accountId").html("Your address: " + account);
             }
         });
         // Init contracts
         $.getJSON("Mayor.json").done(function(c) {
-            App.contracts["Mayor"] = TruffleContract(c);
-            App.contracts["Mayor"].setProvider(App.web3Provider);
+            App.contracts.Mayor = TruffleContract(c);
+            App.contracts.Mayor.setProvider(App.web3Provider);
             return App.listenForEvents();
         });    
     },
+
     listenForEvents: function() { /* Activate event listeners */
         web3.eth.getBlockNumber(function (error, block) {
             App.contracts["Mayor"].deployed().then(async (instance) => {
@@ -83,24 +92,14 @@ App = {
         // Retrieve contract instance
         App.contracts["Mayor"].deployed().then(async(instance) =>{
 
-            /*Retrieve account number
-            account_number = localStorage["number"];
-            if (Number.isNaN(parseFloat(account_number))) {
-                account_number = 0;
-                localStorage['number'] = 0;
-            }
-            */
-
             //Get the candidates for mayor
             var i = 0;
             var err = false;
-            var candidates = [];
             var options = [];
             while (!err) {
                 try {
                     let candidate = await instance.candidates(i);
                     console.log(candidate);
-                    candidates.push(candidate);
                     options.push({
                         text: 'Candidate ' + i,
                         value: candidate,
@@ -113,7 +112,25 @@ App = {
                 }
                 i++;
             }
-            //console.log(candidates);
+            var j = 0;
+            err = false;
+            while (!err) {
+                try {
+                    let coalition = await instance.coalitions(j);
+                    console.log(coalition.coalition_address); 
+                    options.push({
+                        text: "Coalition " + j,
+                        value: coalition.coalition_address,
+                        id: "checkbox-candidate-" + i
+                    });
+                }
+                catch (error) {
+                    console.log(error);
+                    err = true;
+                }
+                i++;
+                j++;
+            }
             let optionList = document.getElementById('vote').options;
             let checkboxes = document.getElementById('candidates-list');
             //Add an option for every candidate
@@ -148,17 +165,16 @@ App = {
         App.contracts["Mayor"].deployed().then(async(instance) => {
             
             //The addres must be one in the network
-            const address = document.getElementById("voter-address").value;
             //const accounts = await web3.eth.getAccounts();
             //var account = accounts[account_number];
             //account_number++;
             //App.voters[name] = address;
             //App.voters["number"] = account_number;
             var elem = document.getElementById("notification");
+            const address = document.getElementById("voter-address").value;
             console.log(sigil,symbol,soul);
             try {
                 var result = await instance.compute_envelope(sigil, symbol, soul, {from: address});
-                console.log(result);
                 result = await instance.cast_envelope(result, {from: address});
                 console.log(result);
                 if (result.logs[0].event == "EnvelopeCast") {
@@ -180,8 +196,9 @@ App = {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
             //var account = App.voters[name];
-            const address = document.getElementById("voter-address");
+            const address = document.getElementById("voter-address").value;
             var elem = document.getElementById("notification");
+            console.log(address);
             try {
                 var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: address});
                 console.log(result);
@@ -199,7 +216,7 @@ App = {
             
             try {
                 var result = await instance.mayor_or_sayonara({from: address});
-                if (result.log[0].event == "NewMayor") {
+                if (result.logs[0].event == "NewMayor") {
                     document.getElementById("vote-form").display = "none";
                     document.getElementById("results").display = "inline";
                     var elem = document.getElementById("winner-announce");
@@ -223,7 +240,8 @@ App = {
     createCoalition: function(coalition_address, candidates) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
             try {
-                var result = await instance.createCoalition(candidates, {from: coalition_address});
+                var elem = document.getElementById("notification");
+                var result = await instance.create_coalition(candidates, {from: coalition_address});
                 console.log(result);
                 if (result.logs[0].event == "CoalitionCreate") {
                     elem.innerHTML = "Coalition Created"
@@ -242,10 +260,14 @@ App = {
 
 function selection(s) {
     if (s == 0) {
-        //case coalition
+        // Case coalition
+        document.getElementById("vote-form").style.display = "none";
+        document.getElementById("coalition-form").style.display = "inline";
     }
     else if (s == 1) {
-        //case vote
+        // Case vote
+        document.getElementById("vote-form").style.display = "inline";
+        document.getElementById("coalition-form").style.display = "none";
     }
 }
 

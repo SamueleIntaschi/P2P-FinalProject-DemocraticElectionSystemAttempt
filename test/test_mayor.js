@@ -2,10 +2,9 @@ const MayorContract = artifacts.require("Mayor"); // ./build/Mayor.json
 
 contract("Testing MayorContract", accounts => {
     // Test the behavior of the contract
-    /*
     it("Should test the contract behavior", async function() {
         
-        var quorum = 7;
+        var quorum = 5;
         var voters = new Array(quorum);
         var win = false;
         var totalSoul = 0;
@@ -100,25 +99,41 @@ contract("Testing MayorContract", accounts => {
         else assert.equal(final_res.logs[0].event, "Sayonara", "Mayor selection should be correct");
 
         // Check the balance of the accounts
-        const winnerBalance = await web3.eth.getBalance(winner);
-        const escrowBalance = await web3.eth.getBalance(escrow);
+        //const winnerBalance = await web3.eth.getBalance(winner);
+        //const escrowBalance = await web3.eth.getBalance(escrow);
+        const winnerBalance = Number.parseFloat(await web3.eth.getBalance(winner)).toPrecision(15);
+        const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
+        var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
         if (result) {
             assert.equal(winnerBalance, candidateSouls.get(winner), "Winner balance should be correct");
             assert.equal(escrowBalance, 0, "Escrow balance should be correct");
         }
         else {
             assert.equal(winnerBalance, 0, "Winner balance should be correct");
-            assert.equal(escrowBalance, totalSoul, "Escrow balance should be correct");
+            assert.equal(escrowBalance, preciseTotalSoul, "Escrow balance should be correct");
         }
         for (var i=0; i<quorum; i++) {
+            /*
             if ((result && voters[i].symbol != winner.address)) {
                 // Compute an approximation of the balance
                 var expectedBalance = voters[i].balance - voters[i].ethUsed;
                 var actualBalance = await web3.eth.getBalance(accounts[i]);
                 assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
             }
+            */
+            if (result && voters[i].symbol != winner) {
+                // Compute an approximation of the balance
+                var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed).toPrecision(15);
+                var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
+                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+            }
+            else if (!result || (result && voters[i].symbol == winner)) {
+                var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed - voters[i].soul).toPrecision(15);
+                var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
+                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+            }
         }
-    });*/
+    });
 
 
 
@@ -268,7 +283,6 @@ contract("Testing MayorContract", accounts => {
         const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
         coalitionSouls = Number.parseFloat(coalitionSouls).toPrecision(15);
         var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
-
         if (result && coal_winner) {
             assert.equal(winnerBalance, coalitionSouls, "Winner balance should be correct");
             assert.equal(escrowBalance, 0, "Escrow balance should be correct");

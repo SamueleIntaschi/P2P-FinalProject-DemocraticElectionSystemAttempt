@@ -126,6 +126,7 @@ contract Mayor {
 
     }
 
+    //TODO: controllare che non vengano create coalizioni uguali
     /// @notice Create a coalition taking a list of candidates
     /// @param _candidates the candidates who will form a coalition
     function create_coalition(address payable[] memory _candidates) canVote public {
