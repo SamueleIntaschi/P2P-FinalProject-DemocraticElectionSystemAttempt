@@ -2,10 +2,6 @@
 //pragma solidity 0.8.1;
 pragma solidity >=0.6.22 <0.9.0;
 
-//TODO: coalizioni, trattate come candidati
-//TODO: funzione per aggiungere candidati o coalizioni
-//TODO: funzione per vedere quali sono i candidati o il quorum
-
 contract Mayor {
     
     // Structs, events, and modifiers
@@ -122,11 +118,10 @@ contract Mayor {
         // Emit the event
         emit EnvelopeOpen(msg.sender, msg.value, _symbol);
         // Making the following call here produce a further cost (for the mayor_or_sayonara() execution) for the last voting account
-        //if (voting_condition.envelopes_opened == voting_condition.envelopes_casted) mayor_or_sayonara();
+        if (voting_condition.envelopes_opened == voting_condition.envelopes_casted) mayor_or_sayonara();
 
     }
 
-    //TODO: controllare che non vengano create coalizioni uguali
     /// @notice Create a coalition taking a list of candidates
     /// @param _candidates the candidates who will form a coalition
     function create_coalition(address payable[] memory _candidates) canVote public {
@@ -159,6 +154,11 @@ contract Mayor {
         Coalition memory coalition = Coalition({components: _candidates, coalition_address: c_address});
         coalitions.push(coalition);
         emit CoalitionCreate(c_address, _candidates);
+    }
+
+    /// @notice Returns the coalition at this index
+    function get_coalition(uint index) public view returns(Coalition memory) {
+        return coalitions[index];
     }
     
     

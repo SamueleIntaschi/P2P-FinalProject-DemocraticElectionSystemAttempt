@@ -8,9 +8,7 @@
 */
 
 /*
-TODO: controllare perché non vengono accettati alcuni indirizzi eth 
-      controllare funzionamento sistema di voti
-      event listeners
+    TODOs: migliorare grafica
 */
 
 App = {
@@ -18,22 +16,8 @@ App = {
     contract_address: "",
     web3Provider: null, // Web3 provider
     url: 'http://127.0.0.1:7545', // Url for web3
-    account: "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
-    accounts: [
-        "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
-        "0xF076E015a43B8d4510b64CD7302B7a7d127874Fd",
-        "0x48A9f868446130A896D73BC84d0447eb3b17bD07",
-        "0xf22F913131989234020AfaAb74bE4434F8D996EC",
-        "0xFaf9ebB1e5DE09aB161620a612053562f568dE9c",
-        "0xCEEDBEAF084AE3A44427E0Cab3171A22dD161106",
-        "0x542392b415B3762A95088151e068799f7577a44F",
-        "0xc13F2467E44FF13c01a9eF5F1cd9ADc4C5468615",
-        "0x8aF2dF23C48259BBD95C84873163d752938A7f32",
-        "0xE96AB844BAC663e1924Df3ae2249F03F8d01d975"
-    ],
-    candidates: new Map(),
-    //voters: window.localStorage,
-    voters: new Map(),
+    account: "",
+    candidates: [],
 
     init: function() { return App.initWeb3(); },
 
@@ -53,9 +37,7 @@ App = {
         return App.initContract();
     },
 
-    initContract: async function() { /* Upload the contract's */ 
-        let networkId = await web3.eth.net.getId();
-        console.log('networkId', networkId);
+    initContract: async function() { /* Upload the contract's */
 
         // Store ETH current account
         web3.eth.getCoinbase(function(err, account) {
@@ -77,17 +59,45 @@ App = {
             App.contracts["Mayor"].deployed().then(async (instance) => {
                 instance.NewMayor().on('data', function (event) {
                     console.log("New Mayor!!!");
-                    document.getElementById("vote-form").display = "none";
-                    document.getElementById("results").display = "inline";
+                    hideAll();
+                    document.getElementById("results").style.display = "inline";
                     var elem = document.getElementById("winner-announce");
-                    elem.innerHTML = event.returnValues._candidate;
-                    //App.voters.clear();
-                    // If event has parameters: event.returnValues.*paramName*
+                    console.log(event);
+                    elem.innerHTML = "The winner is: " + event.returnValues[0];
+                });
+                instance.Sayonara().on('data', function (event) {
+                    console.log("Sayonara!!!");
+                    hideAll();
+                    document.getElementById("results").style.display = "inline";
+                    var elem = document.getElementById("winner-announce");
+                    console.log(event);
+                    elem.innerHTML = "There is not a winner";
+                });
+                instance.CoalitionCreate().on('data', function (event) {
+                    showSelectionNotificationsOnly();
+                    let optionList = document.getElementById('vote').options;
+                    let coalition_address = event.returnValues[0];
+                    let components = event.returnValues[1];
+                    let string = "Coalition of candidates: "
+                    for (var i=0; i<components.length; i++) {
+                        if (i == components.length - 1) {
+                            var ind = getIndexOfCandidate(components[i]);
+                            string = string + ind;
+                        }
+                        else {
+                            var ind = getIndexOfCandidate(components[i]);
+                            string = string + ind + ", ";
+                        } 
+                    }
+                    optionList.add(
+                        new Option(string, coalition_address, false)
+                    );
                 });
             });
         });
         return App.render();
     },
+
     render: function() { /* Render page */
         // Retrieve contract instance
         App.contracts["Mayor"].deployed().then(async(instance) =>{
@@ -99,7 +109,7 @@ App = {
             while (!err) {
                 try {
                     let candidate = await instance.candidates(i);
-                    console.log(candidate);
+                    App.candidates.push(candidate);
                     options.push({
                         text: 'Candidate ' + i,
                         value: candidate,
@@ -116,12 +126,26 @@ App = {
             err = false;
             while (!err) {
                 try {
-                    let coalition = await instance.coalitions(j);
-                    console.log(coalition.coalition_address); 
+                    let coalition = await instance.get_coalition(j, {from: App.account});
+                    console.log(coalition);
+                    let string = "Coalition of candidates: "
+                    var id = "";
+                    for (var z=0; z<coalition.components.length; z++) {
+                        if (z == coalition.components.length -1) {
+                            let ind = getIndexOfCandidate(coalition.components[z]);
+                            string = string + ind;
+                            id = "checkbox-coalition-" + i;
+                        }
+                        else {
+                            let ind = getIndexOfCandidate(coalition.components[z]);
+                            string = string + ind + ", ";
+                            id = "checkbox-coalition-" + i;
+                        }
+                    } 
                     options.push({
-                        text: "Coalition " + j,
+                        text: string,
                         value: coalition.coalition_address,
-                        id: "checkbox-candidate-" + i
+                        id: id
                     });
                 }
                 catch (error) {
@@ -132,11 +156,15 @@ App = {
                 j++;
             }
             let optionList = document.getElementById('vote').options;
+            let optionListOpen = document.getElementById('vote-open').options;
             let checkboxes = document.getElementById('candidates-list');
             //Add an option for every candidate
             options.forEach(option => {
-                //Add candidates to the selection component
+                //Add candidates to the selection components
                 optionList.add(
+                    new Option(option.text, option.value, option.selected)
+                );
+                optionListOpen.add(
                     new Option(option.text, option.value, option.selected)
                 );
                 //Add candidates to the coalition checkbox
@@ -163,20 +191,14 @@ App = {
 
     vote: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
-            
-            //The addres must be one in the network
-            //const accounts = await web3.eth.getAccounts();
-            //var account = accounts[account_number];
-            //account_number++;
-            //App.voters[name] = address;
-            //App.voters["number"] = account_number;
+
             var elem = document.getElementById("notification");
-            const address = document.getElementById("voter-address").value;
-            console.log(sigil,symbol,soul);
+            //const address = document.getElementById("voter-address").value;
+            console.log(sigil,symbol,soul, App.account);
+            showSelectionNotificationsOnly();
             try {
-                var result = await instance.compute_envelope(sigil, symbol, soul, {from: address});
-                result = await instance.cast_envelope(result, {from: address});
-                console.log(result);
+                var result = await instance.compute_envelope(sigil, symbol, soul, {from: App.account});
+                result = await instance.cast_envelope(result, {from: App.account});
                 if (result.logs[0].event == "EnvelopeCast") {
                     elem.innerHTML = "Vote correctly inserted";
                 }
@@ -195,13 +217,11 @@ App = {
     openEnvelope: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
-            //var account = App.voters[name];
-            const address = document.getElementById("voter-address").value;
+            console.log(sigil,symbol,soul);
             var elem = document.getElementById("notification");
-            console.log(address);
+            showSelectionNotificationsOnly();
             try {
-                var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: address});
-                console.log(result);
+                var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: App.account});
                 if (result.logs[0].event == "EnvelopeOpen") {
                     elem.innerHTML = "EnvelopeOpened"
                 }
@@ -213,38 +233,18 @@ App = {
                 elem.innerHTML = "The quorum is not reached yet";
                 console.log(error);
             }
-            
-            try {
-                var result = await instance.mayor_or_sayonara({from: address});
-                if (result.logs[0].event == "NewMayor") {
-                    document.getElementById("vote-form").display = "none";
-                    document.getElementById("results").display = "inline";
-                    var elem = document.getElementById("winner-announce");
-                    elem.innerHTML = "New Mayor elected";
-                    //App.voters.clear();
-                }
-                else if (result.logs[0].event == "Sayonara") {
-
-                }
-                else {
-                    console.log(result);
-                }
-            }
-            catch (error) {
-                console.log(error);
-            }
-
         });
     },
 
-    createCoalition: function(coalition_address, candidates) {
+    createCoalition: function(candidates) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
             try {
                 var elem = document.getElementById("notification");
-                var result = await instance.create_coalition(candidates, {from: coalition_address});
+                var result = await instance.create_coalition(candidates, {from: App.account});
                 console.log(result);
+                showSelectionNotificationsOnly();
                 if (result.logs[0].event == "CoalitionCreate") {
-                    elem.innerHTML = "Coalition Created"
+                    elem.innerHTML = "Coalition Created";
                 }
                 else {
                     elem.innerHTML = "Coalition not created";
@@ -258,22 +258,48 @@ App = {
 
 }
 
+function showSelectionNotificationsOnly() {
+    hideAll();
+    document.getElementById("notification").style.display = "inline";
+    var elems = document.getElementsByClassName("selection");
+    for (var i=0; i<elems.length; i++) {
+        elems[i].style.display = "inline";
+    }
+}
+
+function hideAll() {
+    document.getElementById("notification").style.display = "none";
+    var elems = document.getElementsByClassName("selection");
+    for (var i=0; i<elems.length; i++) {
+        elems[i].style.display = "none";
+    }
+    elems = document.getElementsByClassName("forms");
+    for (var i=0; i<elems.length; i++) {
+        elems[i].style.display = "none";
+    }
+}
+
 function selection(s) {
     if (s == 0) {
         // Case coalition
-        document.getElementById("vote-form").style.display = "none";
+        hideAll();
         document.getElementById("coalition-form").style.display = "inline";
     }
     else if (s == 1) {
         // Case vote
+        hideAll();
         document.getElementById("vote-form").style.display = "inline";
-        document.getElementById("coalition-form").style.display = "none";
+    }
+    else if (s == 2) {
+        // Case opening
+        hideAll();
+        document.getElementById("open-form").style.display = "inline";
     }
 }
 
 function coalition_handler() {
+    cleanNotification();
     var candidates = [];
-    var address = document.getElementById("coalition-address").value;
     var cbxs = document.getElementsByClassName("checkbox-input");
     for (var i=0; i<cbxs.length; i++) {
         if (cbxs[i].checked) {
@@ -281,17 +307,14 @@ function coalition_handler() {
         }
     }
     
-    App.createCoalition(address, candidates);
+    App.createCoalition(candidates);
 }
 
 function open_handler() {
     cleanNotification();
-    var fname = document.getElementById("voter-fname").value;
-    var lname = document.getElementById("voter-lname").value;
-    var name = fname + " " + lname;
-    var soul = document.getElementById("soul").value;
-    var symbol = document.getElementById("vote").value;
-    var sigil = document.getElementById("sigil").value;
+    var soul = document.getElementById("open-soul-field").value;
+    var symbol = document.getElementById("vote-open").value;
+    var sigil = document.getElementById("open-sigil-field").value;
 
     App.openEnvelope(sigil, symbol, soul);
 
@@ -299,9 +322,6 @@ function open_handler() {
 
 function vote_handler() {
     cleanNotification();
-    var fname = document.getElementById("voter-fname").value;
-    var lname = document.getElementById("voter-lname").value;
-    var name = fname + " " + lname;
     var symbol = document.getElementById("vote").value;
     /*
     TODO: var soul = prompt("Enter soul to send", "");
@@ -316,6 +336,13 @@ function vote_handler() {
 function cleanNotification() {
     var elem = document.getElementById("notification");
     elem.innerHTML = "";
+}
+
+function getIndexOfCandidate(candidate) {
+    for (var i=0; i<App.candidates.length; i++) {
+        if (App.candidates[i] == candidate) return i;
+    }
+    return -1;
 }
 
 // Call init whenever the window loads

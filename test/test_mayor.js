@@ -136,6 +136,9 @@ contract("Testing MayorContract", accounts => {
     });
 
 
+    /*
+    TODO: adesso la funzione mayor or sayonara viene chiamata da open_envelope stessa, sistemare i test
+    */
 
     
     it("Should test the contract behavior with coalitions", async function() {

@@ -18,11 +18,12 @@
 
         <input class="selection" type="button" onClick="selection(0)" value="Create a coalition">
         <input class="selection" type="button" onClick="selection(1)" value="Vote">
-
+        <input class="selection" type="button" onClick="selection(2)" value="Open an envelope">
+ 
         <div class="forms" id="coalition-form">
           <form>
-            <label for="coalition-address">Address</label>
-            <input type="text" id="coalition-address" name="address" placeholder="Your Address..">
+            <!--label for="coalition-address">Address</label>
+            <input type="text" id="coalition-address" name="address" placeholder="Your Address.."-->
             <fieldset id="candidates-list">
               <legend>Candidates</legend>
             </fieldset>
@@ -30,16 +31,16 @@
           </form>
         </div>
 
-        <div class = "forms" id="vote-form">
+        <div class="forms" id="vote-form">
           <form>
-            <label for="voter-address">Address</label>
+            <!--label for="voter-address">Address</label>
             <input type="text" id="voter-address" name="address" placeholder="Your Address..">
 
             <label for="voter-fname">First Name</label>
             <input type="text" id="voter-fname" name="firstname" placeholder="Your name..">
         
             <label for="voter-lname">Last Name</label>
-            <input type="text" id="voter-lname" name="lastname" placeholder="Your last name..">
+            <input type="text" id="voter-lname" name="lastname" placeholder="Your last name.."-->
 
             <label for="sigil">Sigil</label>
             <input type="text" id="sigil" name="sigil" placeholder="Sigil..">
@@ -51,6 +52,21 @@
             <select id="vote" name="Candidates"\>
 
             <input type="button" onClick="vote_handler()" value="Submit">
+          </form>
+        </div>
+
+        <div class="forms" id="open-form">
+          <form>
+
+            <label for="open-sigil-field">Sigil</label>
+            <input type="text" id="open-sigil-field" name="sigil" placeholder="Sigil..">
+            
+            <label for="open-soul-field">Soul</label>
+            <input type="text" id="open-soul-field" name="soul" placeholder="Soul to send..">
+        
+            <label for="vote-open">Voting preference</label>
+            <select id="vote-open" name="Candidates"\>
+
             <input type="button" onClick="open_handler()" value="Open envelope">
           </form>
         </div>
