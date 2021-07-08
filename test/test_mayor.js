@@ -21,6 +21,8 @@ contract("Testing MayorContract", accounts => {
             "0x8aF2dF23C48259BBD95C84873163d752938A7f32",
             "0xE96AB844BAC663e1924Df3ae2249F03F8d01d975"
         ];
+        var envelopesCasted = 0;
+        var envelopesOpened = 0;
         candidateSouls = new Map();
         candidateVotes = new Map();
         for (var i=0; i<candidates.length; i++) {
@@ -30,8 +32,6 @@ contract("Testing MayorContract", accounts => {
         var escrow = "0x0472ec0185ebb8202f3d4ddb0226998889663cf2";
         var gas = 0;
         // Create the contract from an impartial account
-        gas = await MayorContract.new.estimateGas(candidates, escrow, quorum, {from: accounts[quorum]});
-        console.log("Gas used for contract creation: " + gas);
         const instance = await MayorContract.new(candidates, escrow, quorum, {from: accounts[quorum]});
         // Send envelopes until the quorum is reached
         for (var i=0; i<quorum; i++) {
@@ -48,17 +48,15 @@ contract("Testing MayorContract", accounts => {
             };
 
             // Compute the envelope
-            gas = await instance.compute_envelope.estimateGas(voters[i].sigil, voters[i].symbol, voters[i].soul, {from: accounts[i]});
-            console.log("Gas used to compute an envelope from account " + i + ": " + gas);
             var result = await instance.compute_envelope(voters[i].sigil, voters[i].symbol, voters[i].soul, {from: accounts[i]});
 
             // Cast the computed envelope
-            gas = await instance.cast_envelope.estimateGas(result, {from: accounts[i]});
-            console.log("Gas used to cast an envelope from account " + i + ": " + gas);
             var cast_res = await instance.cast_envelope(result, {from: accounts[i]});
             assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            envelopesCasted++;
             const tx = await web3.eth.getTransaction(cast_res.tx);
             const gasPrice = tx.gasPrice;
+            gas = cast_res.receipt.gasUsed;
             voters[i].ethUsed += gas * gasPrice;
             // Update the candidate soul and votes number
             totalSoul += voters[i].soul;
@@ -67,78 +65,60 @@ contract("Testing MayorContract", accounts => {
         }
 
         // Open the envelopes previously sent
-        for (var i=0; i<quorum; i++) {
+        for (var j=0; j<quorum; j++) {
             //Open envelope
-            gas = await instance.open_envelope.estimateGas(voters[i].sigil, voters[i].symbol, {value: voters[i].soul, from: accounts[i]});
-            console.log("Gas used to open an envelope from account " + i + ": " + gas);
-            const open_res = await instance.open_envelope.sendTransaction(voters[i].sigil, voters[i].symbol, {value: voters[i].soul, from: accounts[i]})//await instance.open_envelope(i, doblon, {from: accounts[i]});
+            const open_res = await instance.open_envelope.sendTransaction(voters[j].sigil, voters[j].symbol, {value: voters[j].soul, from: accounts[j]});
             assert.equal(open_res.logs[0].event, "EnvelopeOpen", "Envelopes should be opened");
+            envelopesOpened++;
             const tx = await web3.eth.getTransaction(open_res.tx);
             const gasPrice = tx.gasPrice;
-            voters[i].ethUsed += gas * gasPrice;
-        }
+            gas = open_res.receipt.gasUsed;
+            voters[j].ethUsed += gas * gasPrice;
+            if (envelopesCasted == envelopesOpened) {
+                var winner = "0x0";
+                var result = true;
+                for (var i=0; i<candidates.length; i++) {
+                    if (winner == "0x0" && candidateSouls.get(candidates[i])> 0) winner = candidates[i];
+                    else if ((candidateSouls.get(candidates[i]) > candidateSouls.get(winner) || 
+                    ((candidateSouls.get(candidates[i]) == candidateSouls.get(winner) && candidateVotes.get(candidates[i]) > candidateVotes.get(winner))))) {
+                        winner = candidates[i];
+                    }
+                }
+                if (winner == "0x0") result = false;
 
-        //Check the final result: new mayor elected or sayonara my mayor
-        gas = await instance.mayor_or_sayonara.estimateGas();
-        console.log("Gas used to decide the results of the election: " + gas);
-        const final_res = await instance.mayor_or_sayonara({from: accounts[quorum]});
-
-        var winner = "0x0";
-        var result = true;
-        for (var i=0; i<candidates.length; i++) {
-            if (winner == "0x0" && candidateSouls.get(candidates[i])> 0) winner = candidates[i];
-            else if ((candidateSouls.get(candidates[i]) > candidateSouls.get(winner) || 
-              ((candidateSouls.get(candidates[i]) == candidateSouls.get(winner) && candidateVotes.get(candidates[i]) > candidateVotes.get(winner))))) {
-                winner = candidates[i];
-            }
-        }
-        if (winner == "0x0") result = false;
-
-        //TODO: controllare che venga eletto il sindaco giusto o nessuno
-        if (result) assert.equal(final_res.logs[0].event, "NewMayor", "Mayor selection should be correct");
-        else assert.equal(final_res.logs[0].event, "Sayonara", "Mayor selection should be correct");
-
-        // Check the balance of the accounts
-        //const winnerBalance = await web3.eth.getBalance(winner);
-        //const escrowBalance = await web3.eth.getBalance(escrow);
-        const winnerBalance = Number.parseFloat(await web3.eth.getBalance(winner)).toPrecision(15);
-        const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
-        var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
-        if (result) {
-            assert.equal(winnerBalance, candidateSouls.get(winner), "Winner balance should be correct");
-            assert.equal(escrowBalance, 0, "Escrow balance should be correct");
-        }
-        else {
-            assert.equal(winnerBalance, 0, "Winner balance should be correct");
-            assert.equal(escrowBalance, preciseTotalSoul, "Escrow balance should be correct");
-        }
-        for (var i=0; i<quorum; i++) {
-            /*
-            if ((result && voters[i].symbol != winner.address)) {
-                // Compute an approximation of the balance
-                var expectedBalance = voters[i].balance - voters[i].ethUsed;
-                var actualBalance = await web3.eth.getBalance(accounts[i]);
-                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
-            }
-            */
-            if (result && voters[i].symbol != winner) {
-                // Compute an approximation of the balance
-                var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed).toPrecision(15);
-                var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
-                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
-            }
-            else if (!result || (result && voters[i].symbol == winner)) {
-                var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed - voters[i].soul).toPrecision(15);
-                var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
-                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+                if (result) {
+                    assert.equal(open_res.logs[1].event, "NewMayor", "Mayor selection should be correct");
+                    assert.equal(open_res.logs[1].args._candidate, winner, "Mayor should be correct");
+                }
+                else assert.equal(open_res.logs[1].event, "Sayonara", "Mayor selection should be correct");
+            
+                const winnerBalance = Number.parseFloat(await web3.eth.getBalance(winner)).toPrecision(15);
+                const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
+                var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
+                if (result) {
+                    assert.equal(winnerBalance, candidateSouls.get(winner), "Winner balance should be correct");
+                    assert.equal(escrowBalance, 0, "Escrow balance should be correct");
+                }
+                else {
+                    assert.equal(winnerBalance, 0, "Winner balance should be correct");
+                    assert.equal(escrowBalance, preciseTotalSoul, "Escrow balance should be correct");
+                }
+                for (var i=0; i<quorum; i++) {
+                    if (result && voters[i].symbol != winner) {
+                        // Compute an approximation of the balance
+                        var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed).toPrecision(15);
+                        var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
+                        assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+                    }
+                    else if (!result || (result && voters[i].symbol == winner)) {
+                        var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed - voters[i].soul).toPrecision(15);
+                        var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
+                        assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+                    }
+                }
             }
         }
     });
-
-
-    /*
-    TODO: adesso la funzione mayor or sayonara viene chiamata da open_envelope stessa, sistemare i test
-    */
 
     
     it("Should test the contract behavior with coalitions", async function() {
@@ -162,6 +142,8 @@ contract("Testing MayorContract", accounts => {
             // Coalition address
             accounts[quorum + 1]
         ];
+        var envelopesCasted = 0;
+        var envelopesOpened = 0;
         var candidateSouls = new Map();
         var candidateVotes = new Map();
         var coalitionSouls = 0;
@@ -228,6 +210,7 @@ contract("Testing MayorContract", accounts => {
             // Cast the computed envelope
             var cast_res = await instance.cast_envelope(result, {from: accounts[i]});
             assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            envelopesCasted++;
             const tx = await web3.eth.getTransaction(cast_res.tx);
             gas = cast_res.receipt.gasUsed;
             const gasPrice = tx.gasPrice;
@@ -239,76 +222,76 @@ contract("Testing MayorContract", accounts => {
         }
 
         // Open the envelopes previously sent
-        for (var i=0; i<quorum; i++) {
+        for (var j=0; j<quorum; j++) {
             //Open envelope
-            const open_res = await instance.open_envelope.sendTransaction(voters[i].sigil, voters[i].symbol, {value: voters[i].soul, from: accounts[i]})//await instance.open_envelope(i, doblon, {from: accounts[i]});
+            const open_res = await instance.open_envelope.sendTransaction(voters[j].sigil, voters[j].symbol, {value: voters[j].soul, from: accounts[j]})
             assert.equal(open_res.logs[0].event, "EnvelopeOpen", "Envelopes should be opened");
-            gas = open_res.receipt.gasUsed;
             const tx = await web3.eth.getTransaction(open_res.tx);
             const gasPrice = tx.gasPrice;
-            voters[i].ethUsed += gas * gasPrice;
-        }
-
-        //Check the final result: new mayor elected or sayonara my mayor
-        const final_res = await instance.mayor_or_sayonara({from: accounts[quorum]});
-
-        var winner = "0x0";
-        var result = true;
-        var coalition = candidates[candidates.length - 1];
-        var coal_winner = false;
-        // Check if the coalition wins the elections
-        if (candidateSouls.get(coalition) > totalSoul/3) {
-            winner = coalition;
-            coal_winner = true;
-            coalitionSouls += candidateSouls.get(coalition);
-        }
-        // Check the other candidates, not the coalition
-        else {
-            for (var i=0; i<candidates.length - 1; i++) {
-                if (winner == "0x0" && candidateSouls.get(candidates[i])> 0) winner = candidates[i];
-                else if ((candidateSouls.get(candidates[i]) > candidateSouls.get(winner) || 
-                ((candidateSouls.get(candidates[i]) == candidateSouls.get(winner) && candidateVotes.get(candidates[i]) > candidateVotes.get(winner))))) {
-                    winner = candidates[i];
+            gas = open_res.receipt.gasUsed;
+            voters[j].ethUsed += gas * gasPrice;
+            envelopesOpened++;
+            if (envelopesCasted == envelopesOpened) {
+                var winner = "0x0";
+                var result = true;
+                var coalition = candidates[candidates.length - 1];
+                var coal_winner = false;
+                // Check if the coalition wins the elections
+                if (candidateSouls.get(coalition) > totalSoul/3) {
+                    winner = coalition;
+                    coal_winner = true;
+                    coalitionSouls += candidateSouls.get(coalition);
                 }
-            }
-        }
+                // Check the other candidates, not the coalition
+                else {
+                    for (var i=0; i<candidates.length - 1; i++) {
+                        if (winner == "0x0" && candidateSouls.get(candidates[i])> 0) winner = candidates[i];
+                        else if ((candidateSouls.get(candidates[i]) > candidateSouls.get(winner) || 
+                        ((candidateSouls.get(candidates[i]) == candidateSouls.get(winner) && candidateVotes.get(candidates[i]) > candidateVotes.get(winner))))) {
+                            winner = candidates[i];
+                        }
+                    }
+                }
 
-        if (winner == "0x0") result = false;
+                if (winner == "0x0") result = false;
 
-        if (result) {
-            assert.equal(final_res.logs[0].event, "NewMayor", "Mayor selection should be correct");
-            assert.equal(final_res.logs[0].args._candidate, winner, "Mayor should be correct");
-        }
-        else assert.equal(final_res.logs[0].event, "Sayonara", "Mayor selection should be correct");
+                if (result) {
+                    assert.equal(open_res.logs[1].event, "NewMayor", "Mayor selection should be correct");
+                    assert.equal(open_res.logs[1].args._candidate, winner, "Mayor should be correct");
+                }
+                else assert.equal(open_res.logs[1].event, "Sayonara", "Mayor selection should be correct");
 
-        // Check the balance of the accounts
-        const winnerBalance = Number.parseFloat(await web3.eth.getBalance(winner)).toPrecision(15);
-        const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
-        coalitionSouls = Number.parseFloat(coalitionSouls).toPrecision(15);
-        var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
-        if (result && coal_winner) {
-            assert.equal(winnerBalance, coalitionSouls, "Winner balance should be correct");
-            assert.equal(escrowBalance, 0, "Escrow balance should be correct");
-        }
-        else if (result && !coal_winner) {
-            assert.equal(winnerBalance, candidateSouls.get(winner), "Winner balance should be correct");
-            assert.equal(escrowBalance, 0, "Escrow balance should be correct");
-        }
-        else {
-            assert.equal(winnerBalance, 0, "Winner balance should be correct");
-            assert.equal(escrowBalance, preciseTotalSoul, "Escrow balance should be correct");
-        }
-        for (var i=0; i<quorum; i++) {
-            if (result && voters[i].symbol != winner) {
-                // Compute an approximation of the balance
-                var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed).toPrecision(15);
-                var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
-                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
-            }
-            else if (!result || (result && voters[i].symbol == winner)) {
-                var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed - voters[i].soul).toPrecision(15);
-                var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
-                assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+                // Check the balance of the accounts
+                const winnerBalance = Number.parseFloat(await web3.eth.getBalance(winner)).toPrecision(15);
+                const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
+                coalitionSouls = Number.parseFloat(coalitionSouls).toPrecision(15);
+                var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
+                if (result && coal_winner) {
+                    assert.equal(winnerBalance, coalitionSouls, "Winner balance should be correct");
+                    assert.equal(escrowBalance, 0, "Escrow balance should be correct");
+                }
+                else if (result && !coal_winner) {
+                    assert.equal(winnerBalance, candidateSouls.get(winner), "Winner balance should be correct");
+                    assert.equal(escrowBalance, 0, "Escrow balance should be correct");
+                }
+                else {
+                    assert.equal(winnerBalance, 0, "Winner balance should be correct");
+                    assert.equal(escrowBalance, preciseTotalSoul, "Escrow balance should be correct");
+                }
+                for (var i=0; i<quorum; i++) {
+                    // Check the balances of the losing voters
+                    if (result && voters[i].symbol != winner) {
+                        // Compute an approximation of the balance
+                        var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed).toPrecision(15);
+                        var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
+                        assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+                    }
+                    else if (!result || (result && voters[i].symbol == winner)) {
+                        var expectedBalance = Number.parseFloat(voters[i].balance - voters[i].ethUsed - voters[i].soul).toPrecision(15);
+                        var actualBalance = Number.parseFloat(await web3.eth.getBalance(accounts[i])).toPrecision(15);
+                        assert.equal(actualBalance, expectedBalance,"Souls should be correctly refunded");
+                    }
+                }
             }
         }
     });
