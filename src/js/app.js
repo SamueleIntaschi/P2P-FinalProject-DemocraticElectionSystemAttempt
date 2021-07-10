@@ -374,6 +374,14 @@ function getIndexOfCandidate(candidate) {
     return -1;
 }
 
+function cancel() {
+    hideAll();
+    var elems = document.getElementsByClassName("selection");
+    for (var i=0; i<elems.length; i++) {
+        elems[i].style.display = "inline";
+    }
+}
+
 // Call init whenever the window loads
 $(function() {
     $(window).on('load', function () {
