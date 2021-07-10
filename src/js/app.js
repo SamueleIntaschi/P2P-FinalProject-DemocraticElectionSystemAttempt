@@ -51,6 +51,10 @@ App = {
             App.contracts.Mayor = TruffleContract(c);
             App.contracts.Mayor.setProvider(App.web3Provider);
             return App.listenForEvents();
+        });
+        // When the metamask account changes, change also the App account
+        window.ethereum.on('accountsChanged', function (accounts) {
+            App.account = accounts;
         });    
     },
 
@@ -192,46 +196,60 @@ App = {
     vote: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
-            var elem = document.getElementById("notification");
-            //const address = document.getElementById("voter-address").value;
-            console.log(sigil,symbol,soul, App.account);
-            showSelectionNotificationsOnly();
-            try {
-                var result = await instance.compute_envelope(sigil, symbol, soul, {from: App.account});
-                result = await instance.cast_envelope(result, {from: App.account});
-                if (result.logs[0].event == "EnvelopeCast") {
-                    elem.innerHTML = "Vote correctly inserted";
+            if (soul != "" && soul >= 0 && sigil != "") {
+                //const address = document.getElementById("voter-address").value;
+                console.log(sigil,symbol,soul, App.account);
+                showSelectionNotificationsOnly();
+                try {
+                    var result = await instance.compute_envelope(sigil, symbol, soul, {from: App.account});
+                    result = await instance.cast_envelope(result, {from: App.account});
+                    if (result.logs[0].event == "EnvelopeCast") {
+                        notify("Vote correctly inserted", 0);
+                    }
+                    else {
+                        notify("Vote not inserted", 1);
+                    }
                 }
-                else {
-                    elem.innerHTML = "Vote not inserted";
+                
+                catch (error) {
+                    notify("Vote not inserted", 1);
                 }
             }
-            catch (error) {
-                console.log(error);
-                elem.innerHTML = "Vote not inserted";
+            else if (!sigil) {
+                notify("The sigil can't be empty", 1);
             }
-
+            else if (!soul) {
+                notify("The soul can't be empty", 1);
+            }
         });
     },
 
     openEnvelope: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
-            console.log(sigil,symbol,soul);
-            var elem = document.getElementById("notification");
-            showSelectionNotificationsOnly();
-            try {
-                var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: App.account});
-                if (result.logs[0].event == "EnvelopeOpen") {
-                    elem.innerHTML = "EnvelopeOpened"
+            if (soul != "" && soul >= 0 && sigil != "") {
+                console.log(sigil,symbol,soul);
+                showSelectionNotificationsOnly();
+                try {
+                    var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: App.account});
+                    console.log(result);
+                    if (result.logs[0].event == "EnvelopeOpen") {
+                        notify("Envelope opened", 0);
+                    }
+                    else {
+                        notify("Envelope not opened", 1);
+                    }
                 }
-                else {
-                    elem.innerHTML = "The quorum is not reached yet";
+                catch (error) {
+                    notify("Envelope not opened", 1);
+                    console.log(error);
                 }
             }
-            catch (error) {
-                elem.innerHTML = "The quorum is not reached yet";
-                console.log(error);
+            else if (!sigil) {
+                notify("The sigil can't be empty", 1);
+            }
+            else if (!soul) {
+                notify("The soul can't be empty", 1);
             }
         });
     },
@@ -239,15 +257,14 @@ App = {
     createCoalition: function(candidates) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
             try {
-                var elem = document.getElementById("notification");
                 var result = await instance.create_coalition(candidates, {from: App.account});
                 console.log(result);
                 showSelectionNotificationsOnly();
                 if (result.logs[0].event == "CoalitionCreate") {
-                    elem.innerHTML = "Coalition Created";
+                    notify("Coalition Created", 0);
                 }
                 else {
-                    elem.innerHTML = "Coalition not created";
+                    notify("Coalition not created", 1);
                 }
             }
             catch (e) {
@@ -331,6 +348,18 @@ function vote_handler() {
 
     App.vote(sigil, symbol, soul);
 
+}
+
+function notify(message, mode) {
+    var elem = document.getElementById("notification");
+    elem.style.display = "inline";
+    if (mode == 0) {
+        elem.style.color = "green";
+    }
+    else if (mode == 1) {
+        elem.style.color = "red";
+    }
+    elem.innerHTML = message;
 }
 
 function cleanNotification() {

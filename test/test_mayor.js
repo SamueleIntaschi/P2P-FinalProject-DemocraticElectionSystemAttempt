@@ -58,10 +58,6 @@ contract("Testing MayorContract", accounts => {
             const gasPrice = tx.gasPrice;
             gas = cast_res.receipt.gasUsed;
             voters[i].ethUsed += gas * gasPrice;
-            // Update the candidate soul and votes number
-            totalSoul += voters[i].soul;
-            candidateSouls.set(candidates[symbol], candidateSouls.get(candidates[symbol]) + voters[i].soul);
-            candidateVotes.set(candidates[symbol], candidateVotes.get(candidates[symbol]) + 1);
         }
 
         // Open the envelopes previously sent
@@ -74,6 +70,11 @@ contract("Testing MayorContract", accounts => {
             const gasPrice = tx.gasPrice;
             gas = open_res.receipt.gasUsed;
             voters[j].ethUsed += gas * gasPrice;
+            symbol = voters[j].symbol;
+            // Update the candidate soul and votes number
+            totalSoul += voters[j].soul;
+            candidateSouls.set(symbol, candidateSouls.get(symbol) + voters[j].soul);
+            candidateVotes.set(symbol, candidateVotes.get(symbol) + 1);
             if (envelopesCasted == envelopesOpened) {
                 var winner = "0x0";
                 var result = true;
@@ -95,6 +96,7 @@ contract("Testing MayorContract", accounts => {
                 const winnerBalance = Number.parseFloat(await web3.eth.getBalance(winner)).toPrecision(15);
                 const escrowBalance = Number.parseFloat(await web3.eth.getBalance(escrow)).toPrecision(15);
                 var preciseTotalSoul = Number.parseFloat(totalSoul).toPrecision(15);
+                console.log(escrowBalance, winner, winnerBalance, candidateSouls.get(winner));
                 if (result) {
                     assert.equal(winnerBalance, candidateSouls.get(winner), "Winner balance should be correct");
                     assert.equal(escrowBalance, 0, "Escrow balance should be correct");
@@ -215,10 +217,6 @@ contract("Testing MayorContract", accounts => {
             gas = cast_res.receipt.gasUsed;
             const gasPrice = tx.gasPrice;
             voters[i].ethUsed += gas * gasPrice;
-            // Update the candidate soul and votes number
-            totalSoul += voters[i].soul;
-            candidateSouls.set(symbol, candidateSouls.get(symbol) + voters[i].soul);
-            candidateVotes.set(symbol, candidateVotes.get(symbol) + 1);
         }
 
         // Open the envelopes previously sent
@@ -231,6 +229,11 @@ contract("Testing MayorContract", accounts => {
             gas = open_res.receipt.gasUsed;
             voters[j].ethUsed += gas * gasPrice;
             envelopesOpened++;
+            symbol = voters[j].symbol;
+            // Update the candidate soul and votes number
+            totalSoul += voters[j].soul;
+            candidateSouls.set(symbol, candidateSouls.get(symbol) + voters[j].soul);
+            candidateVotes.set(symbol, candidateVotes.get(symbol) + 1);
             if (envelopesCasted == envelopesOpened) {
                 var winner = "0x0";
                 var result = true;

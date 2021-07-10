@@ -82,10 +82,7 @@ contract Mayor {
     /// @notice Store a received voting envelope
     /// @param _envelope The envelope represented as the keccak256 hash of (sigil, doblon, soul) 
     function cast_envelope(bytes32 _envelope) canVote public {
-        
-        if(envelopes[msg.sender] == 0x0) // => NEW, update on 17/05/2021
-            voting_condition.envelopes_casted++;
-
+        if (envelopes[msg.sender] == 0x0) voting_condition.envelopes_casted++;
         envelopes[msg.sender] = _envelope;
         emit EnvelopeCast(msg.sender);
     }
@@ -167,11 +164,13 @@ contract Mayor {
 
         uint fund = 0;
         bool success = false;
+        uint equal_coalitions = 0;
 
         address payable winner = payable(address(0));
         uint maximum = 0;
 
         for (uint i=0; i<coalitions.length; i++) {
+            // If a coalition has more than 1/3 of the total souls
             if (candidate_souls[coalitions[i].coalition_address] >= total_souls / 3) {
                 if (winner == payable(address(0))) {
                     fund = candidate_souls[coalitions[i].coalition_address];
@@ -179,13 +178,19 @@ contract Mayor {
                     winner = coalitions[i].coalition_address;
                 }
                 else if (candidate_souls[coalitions[i].coalition_address] > maximum)  {
+                    equal_coalitions = 0;
                     fund = candidate_souls[coalitions[i].coalition_address];
                     maximum = candidate_souls[coalitions[i].coalition_address];
                     winner = coalitions[i].coalition_address;
                 }
+                //Case in which a coalition has more than 1/3 of the soul and has the same soul of another coalition, no one wins, all to the escrow
+                else if (candidate_souls[coalitions[i].coalition_address] == maximum) {
+                    equal_coalitions++;
+                }
             }
         }
 
+        // If coalitions do not win the elections, check in the candidates
         if (winner == payable(address(0))) {
             for (uint i=0; i<candidates.length; i++) {
                 if (winner == payable(address(0)) && candidate_souls[candidates[i]] > 0) {
@@ -204,7 +209,8 @@ contract Mayor {
             }
         }
         
-        if (winner != payable(address(0))) {
+        // Case in which the winner exists and there are not more than one coalitions with the same votes
+        if (winner != payable(address(0)) && equal_coalitions == 0) {
             (success, ) = winner.call{value: fund}("");
             require(success, "Contract execution Failed");
             fund = 0;
