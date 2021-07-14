@@ -7,10 +7,6 @@
     - npm run dev
 */
 
-/*
-    TODOs: migliorare grafica
-*/
-
 App = {
     contracts: {}, // Store contract abstractions
     contract_address: "",
@@ -54,7 +50,7 @@ App = {
         });
         // When the metamask account changes, change also the App account
         window.ethereum.on('accountsChanged', function (accounts) {
-            App.account = accounts;
+            App.account = accounts[0];
         });    
     },
 
@@ -212,6 +208,7 @@ App = {
                 }
                 
                 catch (error) {
+                    console.log(error);
                     notify("Vote not inserted", 1);
                 }
             }

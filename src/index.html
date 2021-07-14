@@ -14,17 +14,20 @@
     <body>
         <h1>Valadilene Voting System</h1>
 
-        <h5 id="notification"></h5>
+        <h5 id="notification"></h5><br>
 
-        <input class="selection" type="button" onClick="selection(0)" value="Create a coalition">
-        <input class="selection" type="button" onClick="selection(1)" value="Vote">
-        <input class="selection" type="button" onClick="selection(2)" value="Open an envelope">
+        <input class="selection" type="button" onClick="selection(0)" value="Create a coalition"><br>
+        <input class="selection" type="button" onClick="selection(1)" value="Vote"><br>
+        <input class="selection" type="button" onClick="selection(2)" value="Open an envelope"><br>
  
         <div class="forms" id="coalition-form">
           <form>
             <fieldset id="candidates-list">
               <legend>Candidates</legend>
             </fieldset>
+
+            <br>
+
             <input type="button" onClick="coalition_handler()" value="Submit">
             <input type="button" class="cancel-button" onClick="cancel()" value="Cancel">
           </form>
@@ -34,13 +37,15 @@
           <form>
 
             <label for="sigil">Sigil</label>
-            <input type="text" id="sigil" name="sigil" placeholder="Sigil..">
+            <input type="text" id="sigil" name="sigil" placeholder="Sigil.."> <br>
             
             <label for="soul">Soul</label>
-            <input type="text" id="soul" name="soul" placeholder="Soul to send..">
+            <input type="text" id="soul" name="soul" placeholder="Soul to send.."> <br>
         
-            <label for="vote">Voting preference</label>
-            <select id="vote" name="Candidates"\>
+            <label for="vote">Vote</label>
+            <select id="vote" name="Candidates"></select>
+
+            <br>
 
             <input type="button" onClick="vote_handler()" value="Submit">
             <input type="button" class="cancel-button" onClick="cancel()" value="Cancel">
@@ -51,13 +56,15 @@
           <form>
 
             <label for="open-sigil-field">Sigil</label>
-            <input type="text" id="open-sigil-field" name="sigil" placeholder="Sigil..">
+            <input type="text" id="open-sigil-field" name="sigil" placeholder="Sigil.."> <br>
             
             <label for="open-soul-field">Soul</label>
-            <input type="text" id="open-soul-field" name="soul" placeholder="Soul to send..">
+            <input type="text" id="open-soul-field" name="soul" placeholder="Soul to send.."> <br>
         
-            <label for="vote-open">Voting preference</label>
-            <select id="vote-open" name="Candidates"\>
+            <label for="vote-open">Vote</label>
+            <select id="vote-open" name="Candidates"></select>
+
+            <br>
 
             <input type="button" onClick="open_handler()" value="Open envelope">
             <input type="button" class="cancel-button" onClick="cancel()" value="Cancel">
