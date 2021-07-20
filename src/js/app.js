@@ -7,6 +7,10 @@
     - npm run dev
 */
 
+//TODO: - testare metodo per comunicare all'utente quando il quorum è raggiunto, magari generando un evento nel contratto e ascoltandolo qui
+//      - mettere check su quorum prima di cast e prima di open
+//      - capire perché metamask non mostra i soul inviati
+
 App = {
     contracts: {}, // Store contract abstractions
     contract_address: "",
@@ -14,13 +18,13 @@ App = {
     url: 'http://127.0.0.1:7545', // Url for web3
     account: "",
     candidates: [],
+    quorumReached: false,
 
     init: function() { return App.initWeb3(); },
 
     initWeb3: function() { /* initialize Web3 */
         if(typeof web3 != 'undefined') { // Check whether exists a provider, e.g Metamask
             App.web3Provider = window.ethereum; // standard since 2/11/18
-            //App.web3Provider = new Web3.providers.HttpProvider(App.url);
             web3 = new Web3(App.web3Provider);
             try { // Permission popup
                 ethereum.enable().then(async() => { console.log("DApp connected"); });
@@ -48,7 +52,7 @@ App = {
             App.contracts.Mayor.setProvider(App.web3Provider);
             return App.listenForEvents();
         });
-        // When the metamask account changes, change also the App account
+        // When the metamask account changes, also the account used by App changes
         window.ethereum.on('accountsChanged', function (accounts) {
             App.account = accounts[0];
         });    
@@ -57,28 +61,34 @@ App = {
     listenForEvents: function() { /* Activate event listeners */
         web3.eth.getBlockNumber(function (error, block) {
             App.contracts["Mayor"].deployed().then(async (instance) => {
+                // Case in which a new mayor is elected
                 instance.NewMayor().on('data', function (event) {
-                    console.log("New Mayor!!!");
+                    console.log("New Mayor");
                     hideAll();
+                    // Show the results on the page
                     document.getElementById("results").style.display = "inline";
                     var elem = document.getElementById("winner-announce");
                     console.log(event);
                     elem.innerHTML = "The winner is: " + event.returnValues[0];
                 });
+                // Case in which there are not winners
                 instance.Sayonara().on('data', function (event) {
-                    console.log("Sayonara!!!");
+                    console.log("Sayonara");
                     hideAll();
+                    // Show the results on the page.
                     document.getElementById("results").style.display = "inline";
                     var elem = document.getElementById("winner-announce");
                     console.log(event);
                     elem.innerHTML = "There is not a winner";
                 });
+                // Case in which somebody has create a new coalition
                 instance.CoalitionCreate().on('data', function (event) {
                     showSelectionNotificationsOnly();
                     let optionList = document.getElementById('vote').options;
                     let coalition_address = event.returnValues[0];
                     let components = event.returnValues[1];
                     let string = "Coalition of candidates: "
+                    // Get the components index
                     for (var i=0; i<components.length; i++) {
                         if (i == components.length - 1) {
                             var ind = getIndexOfCandidate(components[i]);
@@ -89,9 +99,16 @@ App = {
                             string = string + ind + ", ";
                         } 
                     }
+                    // Add the coalition to the votable candidates list
                     optionList.add(
                         new Option(string, coalition_address, false)
                     );
+                });
+                // Case in which the quorum is reached
+                instance.QuorumReached().on('data', function (event) {
+                    // Notify the user that he can open his envelope
+                    App.quorumReached = true;
+                    notify("The quorum is reached, now you can open your envelope", 0);
                 });
             });
         });
@@ -102,10 +119,11 @@ App = {
         // Retrieve contract instance
         App.contracts["Mayor"].deployed().then(async(instance) =>{
 
-            //Get the candidates for mayor
+            // Get the candidates for mayor to shows them to user, that should vote one of them
             var i = 0;
             var err = false;
             var options = [];
+            // Stop the research when the contracts returns an error, because it is ended
             while (!err) {
                 try {
                     let candidate = await instance.candidates(i);
@@ -122,6 +140,7 @@ App = {
                 }
                 i++;
             }
+            // Get also the coalitions present
             var j = 0;
             err = false;
             while (!err) {
@@ -158,16 +177,16 @@ App = {
             let optionList = document.getElementById('vote').options;
             let optionListOpen = document.getElementById('vote-open').options;
             let checkboxes = document.getElementById('candidates-list');
-            //Add an option for every candidate
+            //Add an option for every candidate to the select component
             options.forEach(option => {
-                //Add candidates to the selection components
+                //Add candidates to the selection component, to be voted
                 optionList.add(
                     new Option(option.text, option.value, option.selected)
                 );
                 optionListOpen.add(
                     new Option(option.text, option.value, option.selected)
                 );
-                //Add candidates to the coalition checkbox
+                //Add candidates to the coalition checkboxes
                 var input = document.createElement("input");
                 var label = document.createElement("label");
                 input.type = "checkbox";
@@ -180,26 +199,30 @@ App = {
                 label.className = "checkbox-label";
                 input.className = "checkbox-input";
                 n = document.createElement("br");
+                // Append the elements
                 checkboxes.appendChild(input);
                 checkboxes.appendChild(label);
                 checkboxes.appendChild(n);
             });
+            // Check if the quorum is reached
+            if (await instance.is_quorum_reached()) {
+                App.quorumReached = true;
+                notify("The quorum is reached, now you can open your envelope", 0);
+            }
         });
     },
 
-    // Call a function of a smart contract
-
+    // Casting of an envelope
     vote: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
+            // Check that the data inserted by the user are correct and ammissible
             if (soul != "" && soul >= 0 && sigil != "") {
-                //const address = document.getElementById("voter-address").value;
-                console.log(sigil,symbol,soul, App.account);
                 showSelectionNotificationsOnly();
                 try {
                     var result = await instance.compute_envelope(sigil, symbol, soul, {from: App.account});
                     result = await instance.cast_envelope(result, {from: App.account});
-                    if (result.logs[0].event == "EnvelopeCast") {
+                    if (result.logs[0].event == "EnvelopeCast" || result.logs[0].event == "QuorumReached") {
                         notify("Vote correctly inserted", 0);
                     }
                     else {
@@ -296,18 +319,28 @@ function hideAll() {
 function selection(s) {
     if (s == 0) {
         // Case coalition
-        hideAll();
-        document.getElementById("coalition-form").style.display = "inline";
+        if (!App.quorumReached) {
+            hideAll();
+            document.getElementById("coalition-form").style.display = "inline";
+        }
+        else notify("The quorum has already been reached");
     }
     else if (s == 1) {
         // Case vote
-        hideAll();
-        document.getElementById("vote-form").style.display = "inline";
+        if (!App.quorumReached) {
+            hideAll();
+            document.getElementById("vote-form").style.display = "inline";
+        }
+        else notify("The quorum has already been reached", 1);
     }
     else if (s == 2) {
         // Case opening
-        hideAll();
-        document.getElementById("open-form").style.display = "inline";
+        if (App.quorumReached) {
+            hideAll();
+            document.getElementById("open-form").style.display = "inline";
+        }
+        else notify("The quorum is not reached yet", 1);
+
     }
 }
 
@@ -337,13 +370,11 @@ function open_handler() {
 function vote_handler() {
     cleanNotification();
     var symbol = document.getElementById("vote").value;
-    /*
-    TODO: var soul = prompt("Enter soul to send", "");
-    */
     var soul = document.getElementById("soul").value;
     var sigil = document.getElementById("sigil").value;
 
     App.vote(sigil, symbol, soul);
+    
 
 }
 

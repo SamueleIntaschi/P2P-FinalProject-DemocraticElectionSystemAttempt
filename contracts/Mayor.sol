@@ -19,14 +19,17 @@ contract Mayor {
         uint32 envelopes_opened;
     }
 
+    // Struct that represents a coalition
     struct Coalition {
         address payable[] components;
         address payable coalition_address;
     }
     
+    // Events
     event NewMayor(address _candidate);
     event Sayonara(address _escrow);
     event EnvelopeCast(address _voter);
+    event QuorumReached(address _voter);
     event EnvelopeOpen(address _voter, uint _soul, address _symbol);
     event CoalitionCreate(address _coalition_address, address payable[] _candidates);
     
@@ -84,7 +87,9 @@ contract Mayor {
     function cast_envelope(bytes32 _envelope) canVote public {
         if (envelopes[msg.sender] == 0x0) voting_condition.envelopes_casted++;
         envelopes[msg.sender] = _envelope;
-        emit EnvelopeCast(msg.sender);
+        // Emit a different event when the quorum is reached, to inform the users
+        if (voting_condition.envelopes_casted == voting_condition.quorum) emit QuorumReached(msg.sender);
+        else emit EnvelopeCast(msg.sender);
     }
     
     
@@ -106,9 +111,11 @@ contract Mayor {
         voters.push(msg.sender);
         // Save the souls sent by the voter, to eventually refund it if necessary
         souls[msg.sender] = Refund(msg.value, _symbol);
+        // Update the information relative to the election
         candidate_voted[msg.sender] = _symbol;
         candidate_souls[_symbol] += msg.value;
         candidate_votes[_symbol]++;
+        // Increment the number of total souls
         total_souls += msg.value;
         // Increment the number of opened envelopes
         voting_condition.envelopes_opened++;
@@ -122,10 +129,20 @@ contract Mayor {
     /// @notice Create a coalition taking a list of candidates
     /// @param _candidates the candidates who will form a coalition
     function create_coalition(address payable[] memory _candidates) canVote public {
+        // Check if the number of candidates is more than one
         require(_candidates.length > 1, "The number of candidates is too small");
-        //Check if there are duplicates
+        // Check if the address is a candidate
+        bool found = false;
         for (uint i=0; i<_candidates.length; i++) {
-            bool found = false;
+            if (_candidates[i] == msg.sender) {
+                found = true;
+                break;
+            } 
+        }
+        require(!found, "The creator of a coalition cannot be a candidate");
+        // Check if there are duplicates in the components
+        for (uint i=0; i<_candidates.length; i++) {
+            found = false;
             uint j = 0;
             while (j < _candidates.length && !found) {
                 if (_candidates[j] == _candidates[i] && i != j) {
@@ -135,9 +152,9 @@ contract Mayor {
             }
             require(!found, "An address is a duplicate");
         }
-        //Check if all the components are candidates
+        // Check that all the components are candidates
         for (uint i=0; i<_candidates.length; i++) {
-            bool found = false;
+            found = false;
             uint j = 0;
             while (j < candidates.length && !found) {
                 if (candidates[j] == _candidates[i]) {
@@ -154,8 +171,15 @@ contract Mayor {
     }
 
     /// @notice Returns the coalition at this index
+    /// @param index The index of the coalition requested
     function get_coalition(uint index) public view returns(Coalition memory) {
         return coalitions[index];
+    }
+
+    /// @notice Return true if the quorum is reached, false otherwise
+    function is_quorum_reached() public view returns(bool) {
+        if (voting_condition.envelopes_casted == voting_condition.quorum) return true;
+        else return false;
     }
     
     
@@ -164,13 +188,15 @@ contract Mayor {
 
         uint fund = 0;
         bool success = false;
+        // Variables to check if there are more than one candidates or coalitions in a tie
         uint equal_coalitions = 0;
         uint equal_candidates = 0;
 
+        // Address of the winner, if it exits
         address payable winner = payable(address(0));
 
         for (uint i=0; i<coalitions.length; i++) {
-            // If a coalition has more than 1/3 of the total souls
+            // If a coalition has more than 1/3 of the total souls, check if a coalition is the winner
             if (candidate_souls[coalitions[i].coalition_address] >= total_souls / 3) {
                 // First coalition with more than 1/3 of the total soul
                 if (winner == payable(address(0))) {
@@ -179,7 +205,7 @@ contract Mayor {
                     candidate_souls[candidates[i]] = 0;
                     winner = coalitions[i].coalition_address;
                 }
-                // A coalition has more souls than the others
+                // A coalition has more souls than the previous ones
                 else if (candidate_souls[coalitions[i].coalition_address] > fund)  {
                     equal_coalitions = 0;
                     fund = candidate_souls[coalitions[i].coalition_address];
@@ -188,6 +214,7 @@ contract Mayor {
                 }
                 // Case in which a coalition has more than 1/3 of the soul and has the same soul of another coalition, no one wins, all to the escrow
                 else if (candidate_souls[coalitions[i].coalition_address] == fund) {
+                    // Increment the number of coalition 
                     equal_coalitions++;
                 }
             }
@@ -213,13 +240,15 @@ contract Mayor {
                 }
                 // Case in which there are two candidates with the same soul and the same votes
                 else if (candidate_souls[candidates[i]] == fund && candidate_votes[candidates[i]] == candidate_votes[winner]) {
+                    // Increment the number of candidates with same soul and votes
                     equal_candidates++;
                 }
             }
         }
         
-        // Case in which the winner exists and there are not more than one coalitions with the same votes
+        // Case in which a single winner exists
         if (winner != payable(address(0)) && equal_coalitions == 0 && equal_candidates == 0) {
+            // Send the soul that are due to the winner
             (success, ) = winner.call{value: fund}("");
             require(success, "Contract execution Failed");
             fund = 0;
@@ -238,8 +267,9 @@ contract Mayor {
             // Emit the event
             emit NewMayor(winner);
         }
+        // Case in which there are more coalitions with the same souls or more candidates with same soul and votes and more soul than the others
         else {
-            // Transfer the nay souls collected to the escrow
+            // Transfer the  souls collected to the escrow
             fund = total_souls;
             // Update balance before transition to the escrow (for security reasons)
             total_souls = 0;

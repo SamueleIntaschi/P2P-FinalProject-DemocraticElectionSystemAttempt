@@ -62,7 +62,12 @@ contract("Testing MayorContract", accounts => {
 
             // Cast the computed envelope
             var cast_res = await instance.cast_envelope(result, {from: accounts[i]});
-            assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            if (i == quorum - 1) {
+                assert.equal(cast_res.logs[0].event, "QuorumReached", "Envelopes should be casted");
+            }
+            else {
+                assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            }
             envelopesCasted++;
             const tx = await web3.eth.getTransaction(cast_res.tx);
             const gasPrice = tx.gasPrice;
@@ -238,7 +243,12 @@ contract("Testing MayorContract", accounts => {
 
             // Cast the computed envelope
             var cast_res = await instance.cast_envelope(result, {from: accounts[i]});
-            assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            if (i == quorum - 1) {
+                assert.equal(cast_res.logs[0].event, "QuorumReached", "Envelopes should be casted");
+            }
+            else {
+                assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            }
             envelopesCasted++;
             const tx = await web3.eth.getTransaction(cast_res.tx);
             gas = cast_res.receipt.gasUsed;
@@ -267,7 +277,7 @@ contract("Testing MayorContract", accounts => {
                 var coalition = candidates[candidates.length - 1];
                 var coal_winner = false;
                 // Check if the coalition wins the elections
-                if (candidateSouls.get(coalition) > totalSoul/3) {
+                if (candidateSouls.get(coalition) >= totalSoul/3) {
                     winner = coalition;
                     coal_winner = true;
                     coalitionSouls += candidateSouls.get(coalition);
@@ -385,8 +395,12 @@ contract("Testing MayorContract", accounts => {
 
             // Cast the computed envelope
             var cast_res = await instance.cast_envelope(result, {from: accounts[i]});
-            assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
-            envelopesCasted++;
+            if (i == quorum - 1) {
+                assert.equal(cast_res.logs[0].event, "QuorumReached", "Envelopes should be casted");
+            }
+            else {
+                assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            }            envelopesCasted++;
             const tx = await web3.eth.getTransaction(cast_res.tx);
             const gasPrice = tx.gasPrice;
             gas = cast_res.receipt.gasUsed;
@@ -556,8 +570,12 @@ contract("Testing MayorContract", accounts => {
 
             // Cast the computed envelope
             var cast_res = await instance.cast_envelope(result, {from: accounts[i]});
-            assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
-            envelopesCasted++;
+            if (i == quorum - 1) {
+                assert.equal(cast_res.logs[0].event, "QuorumReached", "Envelopes should be casted");
+            }
+            else {
+                assert.equal(cast_res.logs[0].event, "EnvelopeCast", "Envelopes should be casted");
+            }            envelopesCasted++;
             const tx = await web3.eth.getTransaction(cast_res.tx);
             gas = cast_res.receipt.gasUsed;
             const gasPrice = tx.gasPrice;
@@ -585,7 +603,7 @@ contract("Testing MayorContract", accounts => {
                 var coalition0 = candidates[candidates.length - 1];
                 var coalition1 = candidates[candidates.length - 2];
                 // Check if the coalitions have the same soul and bigger than 1/3 of the total soul
-                if (candidateSouls.get(coalition0) > totalSoul/3 && candidateSouls.get(coalition1) > totalSoul/3 && candidateSouls.get(coalition0) ==candidateSouls.get(coalition1)) {
+                if (candidateSouls.get(coalition0) >= totalSoul/3 && candidateSouls.get(coalition1) >= totalSoul/3 && candidateSouls.get(coalition0) ==candidateSouls.get(coalition1)) {
                     winner = "0x0";
                 }
                 // Check the other candidates, not the coalition
