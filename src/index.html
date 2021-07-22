@@ -12,16 +12,23 @@
     <!-- The App script -->
     <script src="js/app.js"></script>
     <body>
+        <!-- Title of the page -->
         <h1>Valadilene Voting System</h1>
 
+        <!-- Notification area -->
         <h5 id="notification"></h5><br>
 
+        <!-- Buttons to select an operation -->
         <input class="selection" type="button" onClick="selection(0)" value="Create a coalition"><br>
         <input class="selection" type="button" onClick="selection(1)" value="Vote"><br>
         <input class="selection" type="button" onClick="selection(2)" value="Open an envelope"><br>
  
+        <!-- Forms -->
+
+        <!-- Form to create a coalition -->
         <div class="forms" id="coalition-form">
           <form>
+            <!-- Candidates list created dynamically by app.js -->
             <fieldset id="candidates-list">
               <legend>Candidates</legend>
             </fieldset>
@@ -33,6 +40,7 @@
           </form>
         </div>
 
+        <!-- Form to cast an envelope -->
         <div class="forms" id="vote-form">
           <form>
 
@@ -42,6 +50,7 @@
             <label for="soul">Soul</label>
             <input type="text" id="soul" name="soul" placeholder="Soul to send.."> <br>
         
+            <!-- Candidates list updated dynamically by app.js -->
             <label for="vote">Vote</label>
             <select id="vote" name="Candidates"></select>
 
@@ -52,6 +61,7 @@
           </form>
         </div>
 
+        <!-- Form to open an envelope -->
         <div class="forms" id="open-form">
           <form>
 
@@ -61,6 +71,7 @@
             <label for="open-soul-field">Soul</label>
             <input type="text" id="open-soul-field" name="soul" placeholder="Soul to send.."> <br>
         
+            <!-- Candidates list updated dynamically by app.js -->
             <label for="vote-open">Vote</label>
             <select id="vote-open" name="Candidates"></select>
 
@@ -71,6 +82,7 @@
           </form>
         </div>
 
+        <!-- Results communication -->
         <div id="results">
           <h1>Election results</h1>
           <h2 id="winner-announce"></h2>

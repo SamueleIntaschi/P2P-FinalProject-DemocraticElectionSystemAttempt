@@ -133,13 +133,22 @@ contract Mayor {
         require(_candidates.length > 1, "The number of candidates is too small");
         // Check if the address is a candidate
         bool found = false;
-        for (uint i=0; i<_candidates.length; i++) {
-            if (_candidates[i] == msg.sender) {
+        for (uint i=0; i<candidates.length; i++) {
+            if (candidates[i] == msg.sender) {
                 found = true;
                 break;
             } 
         }
-        require(!found, "The creator of a coalition cannot be a candidate");
+        // If the address is not a candidate, check that it is not an existing coalition
+        if (!found) {
+            for (uint i=0; i<coalitions.length; i++) {
+                if (coalitions[i].coalition_address == msg.sender) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        require(!found, "The creator of a coalition cannot be a candidate or an existing coalition");
         // Check if there are duplicates in the components
         for (uint i=0; i<_candidates.length; i++) {
             found = false;

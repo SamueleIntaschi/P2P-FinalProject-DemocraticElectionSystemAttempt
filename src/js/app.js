@@ -7,10 +7,6 @@
     - npm run dev
 */
 
-//TODO: - testare metodo per comunicare all'utente quando il quorum è raggiunto, magari generando un evento nel contratto e ascoltandolo qui
-//      - mettere check su quorum prima di cast e prima di open
-//      - capire perché metamask non mostra i soul inviati
-
 App = {
     contracts: {}, // Store contract abstractions
     contract_address: "",
@@ -18,6 +14,7 @@ App = {
     url: 'http://127.0.0.1:7545', // Url for web3
     account: "",
     candidates: [],
+    coalitions: [],
     quorumReached: false,
 
     init: function() { return App.initWeb3(); },
@@ -85,6 +82,7 @@ App = {
                 instance.CoalitionCreate().on('data', function (event) {
                     showSelectionNotificationsOnly();
                     let optionList = document.getElementById('vote').options;
+                    let optionListOpen = document.getElementById('vote-open').options;
                     let coalition_address = event.returnValues[0];
                     let components = event.returnValues[1];
                     let string = "Coalition of candidates: "
@@ -101,6 +99,9 @@ App = {
                     }
                     // Add the coalition to the votable candidates list
                     optionList.add(
+                        new Option(string, coalition_address, false)
+                    );
+                    optionListOpen.add(
                         new Option(string, coalition_address, false)
                     );
                 });
@@ -131,7 +132,8 @@ App = {
                     options.push({
                         text: 'Candidate ' + i,
                         value: candidate,
-                        id: "checkbox-candidate-" + i
+                        id: "checkbox-candidate-" + i,
+                        type: "candidate"
                     });
                 }
                 catch (e) {
@@ -146,7 +148,7 @@ App = {
             while (!err) {
                 try {
                     let coalition = await instance.get_coalition(j, {from: App.account});
-                    console.log(coalition);
+                    App.coalitions.push(coalition);
                     let string = "Coalition of candidates: "
                     var id = "";
                     for (var z=0; z<coalition.components.length; z++) {
@@ -164,47 +166,49 @@ App = {
                     options.push({
                         text: string,
                         value: coalition.coalition_address,
-                        id: id
+                        id: id,
+                        type: "coalition"
                     });
                 }
                 catch (error) {
                     console.log(error);
                     err = true;
                 }
-                i++;
                 j++;
             }
             let optionList = document.getElementById('vote').options;
             let optionListOpen = document.getElementById('vote-open').options;
             let checkboxes = document.getElementById('candidates-list');
-            //Add an option for every candidate to the select component
+            // Add an option for every candidate to the select component
             options.forEach(option => {
-                //Add candidates to the selection component, to be voted
+                // Add candidates to the selection component, to be voted
                 optionList.add(
                     new Option(option.text, option.value, option.selected)
                 );
                 optionListOpen.add(
                     new Option(option.text, option.value, option.selected)
                 );
-                //Add candidates to the coalition checkboxes
-                var input = document.createElement("input");
-                var label = document.createElement("label");
-                input.type = "checkbox";
-                input.name = option.text;
-                label.innerHTML = option.text;
-                input.id = option.id;
-                label.htmlFor = option.id;
-                input.value = option.value;
-                input.innerHTML = option.text;
-                label.className = "checkbox-label";
-                input.className = "checkbox-input";
-                n = document.createElement("br");
-                // Append the elements
-                checkboxes.appendChild(input);
-                checkboxes.appendChild(label);
-                checkboxes.appendChild(n);
+                // Add candidates to the "create coalition" checkboxes
+                if (option.type == "candidate") {
+                    var input = document.createElement("input");
+                    var label = document.createElement("label");
+                    input.type = "checkbox";
+                    input.name = option.text;
+                    label.innerHTML = option.text;
+                    input.id = option.id;
+                    label.htmlFor = option.id;
+                    input.value = option.value;
+                    input.innerHTML = option.text;
+                    label.className = "checkbox-label";
+                    input.className = "checkbox-input";
+                    n = document.createElement("br");
+                    // Append the elements
+                    checkboxes.appendChild(input);
+                    checkboxes.appendChild(label);
+                    checkboxes.appendChild(n);
+                }
             });
-            // Check if the quorum is reached
+            // Check if the quorum ant inform the user that he can open his envelope
             if (await instance.is_quorum_reached()) {
                 App.quorumReached = true;
                 notify("The quorum is reached, now you can open your envelope", 0);
@@ -215,11 +219,10 @@ App = {
     // Casting of an envelope
     vote: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
-
             // Check that the data inserted by the user are correct and ammissible
             if (soul != "" && soul >= 0 && sigil != "") {
-                showSelectionNotificationsOnly();
                 try {
+                    // Call the function and check the result
                     var result = await instance.compute_envelope(sigil, symbol, soul, {from: App.account});
                     result = await instance.cast_envelope(result, {from: App.account});
                     if (result.logs[0].event == "EnvelopeCast" || result.logs[0].event == "QuorumReached") {
@@ -229,30 +232,37 @@ App = {
                         notify("Vote not inserted", 1);
                     }
                 }
-                
                 catch (error) {
                     console.log(error);
                     notify("Vote not inserted", 1);
                 }
+                showSelectionNotificationsOnly();
             }
+            // Inform the user of the errors
             else if (!sigil) {
                 notify("The sigil can't be empty", 1);
             }
             else if (!soul) {
                 notify("The soul can't be empty", 1);
             }
+            else if (isNaN(sigil)) {
+                notify("The sigil must be a number", 1);
+            }
+            else if (isNaN(soul)) {
+                notify("The soul must be a number", 1);
+            }
         });
     },
 
+    // Opening of an envelope
     openEnvelope: function(sigil, symbol, soul) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
 
+            // Check that the data inserted by the user are correct and ammissible
             if (soul != "" && soul >= 0 && sigil != "") {
-                console.log(sigil,symbol,soul);
-                showSelectionNotificationsOnly();
                 try {
+                    // Call the function and check the result
                     var result = await instance.open_envelope.sendTransaction(sigil, symbol, {value: soul, from: App.account});
-                    console.log(result);
                     if (result.logs[0].event == "EnvelopeOpen") {
                         notify("Envelope opened", 0);
                     }
@@ -264,7 +274,9 @@ App = {
                     notify("Envelope not opened", 1);
                     console.log(error);
                 }
+                showSelectionNotificationsOnly();
             }
+            // Notify the errors
             else if (!sigil) {
                 notify("The sigil can't be empty", 1);
             }
@@ -274,12 +286,13 @@ App = {
         });
     },
 
+    // Creation of a coalition
     createCoalition: function(candidates) {
         App.contracts["Mayor"].deployed().then(async(instance) => {
+
             try {
+                // Send the request and check the result
                 var result = await instance.create_coalition(candidates, {from: App.account});
-                console.log(result);
-                showSelectionNotificationsOnly();
                 if (result.logs[0].event == "CoalitionCreate") {
                     notify("Coalition Created", 0);
                 }
@@ -289,22 +302,34 @@ App = {
             }
             catch (e) {
                 console.log(e);
+                notify("Coalition not created", 1);
             }
+            showSelectionNotificationsOnly();
         });
     }
 
 }
 
+// Show only the buttons to select an operation and the notifications
 function showSelectionNotificationsOnly() {
-    hideAll();
+    hideAll();// Reset all the inputs
+    document.getElementById("open-soul-field").value = "";
+    document.getElementById("vote-open").value = "";
+    document.getElementById("open-sigil-field").value = "";
+    document.getElementById("vote").value = "";
+    document.getElementById("soul").value = "";
+    document.getElementById("sigil").value = "";
     document.getElementById("notification").style.display = "inline";
     var elems = document.getElementsByClassName("selection");
     for (var i=0; i<elems.length; i++) {
         elems[i].style.display = "inline";
     }
+
 }
 
+// Hide all the HTML elements of the page
 function hideAll() {
+    // Hide the elements
     document.getElementById("notification").style.display = "none";
     var elems = document.getElementsByClassName("selection");
     for (var i=0; i<elems.length; i++) {
@@ -316,6 +341,7 @@ function hideAll() {
     }
 }
 
+// Select one operation to execute, and check if the selected operation is possible
 function selection(s) {
     if (s == 0) {
         // Case coalition
@@ -344,6 +370,7 @@ function selection(s) {
     }
 }
 
+// Get the information inserted by the user and perform the request to create a coalition
 function coalition_handler() {
     cleanNotification();
     var candidates = [];
@@ -357,16 +384,18 @@ function coalition_handler() {
     App.createCoalition(candidates);
 }
 
+// Get the information inserted by the user and perform the request to open an envelope
 function open_handler() {
     cleanNotification();
     var soul = document.getElementById("open-soul-field").value;
     var symbol = document.getElementById("vote-open").value;
     var sigil = document.getElementById("open-sigil-field").value;
-
+    
     App.openEnvelope(sigil, symbol, soul);
 
 }
 
+// Get the information inserted by the user and perform the request to cast an envelope
 function vote_handler() {
     cleanNotification();
     var symbol = document.getElementById("vote").value;
@@ -378,6 +407,7 @@ function vote_handler() {
 
 }
 
+// Notify the user, for errors or comunications
 function notify(message, mode) {
     var elem = document.getElementById("notification");
     elem.style.display = "inline";
@@ -390,11 +420,13 @@ function notify(message, mode) {
     elem.innerHTML = message;
 }
 
+// Clean the notifications area
 function cleanNotification() {
     var elem = document.getElementById("notification");
     elem.innerHTML = "";
 }
 
+// Returns the index of the candidate with this address
 function getIndexOfCandidate(candidate) {
     for (var i=0; i<App.candidates.length; i++) {
         if (App.candidates[i] == candidate) return i;
@@ -402,6 +434,7 @@ function getIndexOfCandidate(candidate) {
     return -1;
 }
 
+// Cancel the operation previously selected
 function cancel() {
     hideAll();
     var elems = document.getElementsByClassName("selection");

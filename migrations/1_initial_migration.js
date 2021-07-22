@@ -1,5 +1,7 @@
 const Mayor = artifacts.require("Mayor");
 
+// Informations to create the contract
+
 var candidates = [
     "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
     "0xF076E015a43B8d4510b64CD7302B7a7d127874Fd",
@@ -13,7 +15,7 @@ var candidates = [
     "0xE96AB844BAC663e1924Df3ae2249F03F8d01d975"
 ];
 var escrow = "0x0472ec0185ebb8202f3d4ddb0226998889663cf2";
-var quorum = 2;
+var quorum = 1;
 
 module.exports = async function (deployer, network, accounts) {
     await deployer.deploy(Mayor, candidates, escrow, quorum, {from: accounts[quorum]});
