@@ -115,6 +115,8 @@ contract Mayor {
         candidate_voted[msg.sender] = _symbol;
         candidate_souls[_symbol] += msg.value;
         candidate_votes[_symbol]++;
+        // Reset the envelope cast by the voter
+        envelopes[msg.sender] = 0x0;
         // Increment the number of total souls
         total_souls += msg.value;
         // Increment the number of opened envelopes
