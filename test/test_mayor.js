@@ -1,7 +1,5 @@
 const MayorContract = artifacts.require("Mayor"); // ./build/Mayor.json
 
-//TODO: sistemare bilancio escrow aggiungendo bilancio inizialeà, come fatto nell'ultimo test
-
 contract("Testing MayorContract", accounts => {
 
     // Test the behavior of the contract

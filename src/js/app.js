@@ -1,12 +1,3 @@
-/*
-    to start the application:
-    - start ganache and add contract
-    - truffle compile
-    - truffle migrate
-    - metamask
-    - npm run dev
-*/
-
 App = {
     contracts: {}, // Store contract abstractions
     contract_address: "",
