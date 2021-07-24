@@ -18,5 +18,5 @@ var escrow = "0x0472ec0185ebb8202f3d4ddb0226998889663cf2";
 var quorum = 3;
 
 module.exports = async function (deployer, network, accounts) {
-    await deployer.deploy(Mayor, candidates, escrow, quorum, {from: accounts[quorum]});
+    await deployer.deploy(Mayor, candidates, escrow, quorum, {from: accounts[accounts.length - 1]});
 };

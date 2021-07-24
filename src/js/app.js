@@ -3,9 +3,9 @@ App = {
     contract_address: "",
     web3Provider: null, // Web3 provider
     url: 'http://127.0.0.1:7545', // Url for web3
-    account: "",
-    candidates: [],
-    coalitions: [],
+    account: "", // Account used by the front-end
+    candidates: [], // Votable candidates 
+    coalitions: [], // Votable coalitions
     quorumReached: false,
 
     init: function() { return App.initWeb3(); },
